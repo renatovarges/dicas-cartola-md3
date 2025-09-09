@@ -1,5 +1,7 @@
 // Configurações globais
-const CARTOLA_API_URL = 'https://api.cartola.globo.com/atletas/mercado';
+const CARTOLA_API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
+    ? 'https://api.cartola.globo.com/atletas/mercado'
+    : '/.netlify/functions/cartola-api';
 const CANVAS_WIDTH = 2700;
 const CANVAS_HEIGHT = 5400;
 
@@ -72,10 +74,17 @@ document.addEventListener('DOMContentLoaded', function() {
     roundNumberInput.addEventListener('input', updateArtTitle);
     
     // Carregar dados do Cartola na inicialização
-    loadCartolaData();
+    loadCartolaData().then(() => {
+        console.log('Dados do Cartola carregados na inicialização');
+        // Carregar arquivo de exemplo automaticamente após carregar dados do Cartola
+        loadExampleData();
+    });
     
-    // Carregar arquivo de exemplo automaticamente
-    loadExampleData();
+    // Forçar atualização dos dados a cada 5 minutos
+    setInterval(() => {
+        console.log('Atualizando dados do Cartola automaticamente...');
+        loadCartolaData();
+    }, 5 * 60 * 1000);
 });
 
 // Função para atualizar dados do mercado
@@ -123,8 +132,18 @@ async function loadCartolaData() {
             throw new Error(`Erro na API: ${response.status}`);
         }
         
-        cartolaData = await response.json();
-        console.log('Dados do Cartola carregados:', cartolaData);
+        const apiData = await response.json();
+        console.log('Dados brutos da API:', apiData);
+        
+        // Processar dados da API para o formato esperado
+        if (apiData && apiData.atletas) {
+            cartolaData = {
+                atletas: apiData.atletas
+            };
+            console.log('Dados do Cartola processados:', Object.keys(cartolaData.atletas).length, 'jogadores');
+        } else {
+            throw new Error('Estrutura de dados da API inválida');
+        }
         
     } catch (error) {
         console.error('Erro ao carregar dados do Cartola:', error);
@@ -291,31 +310,45 @@ function normalizeClubName(clubName) {
 
 // Função para buscar preço do jogador
 function getPlayerPrice(playerName, clubName) {
-    if (!cartolaData || !cartolaData.atletas) return { price: null, found: false };
+    if (!cartolaData || !cartolaData.atletas) {
+        console.log('Dados do Cartola não disponíveis para:', playerName);
+        return { price: null, found: false };
+    }
     
     const normalizedPlayerName = normalizeString(playerName);
     const normalizedClubName = normalizeString(clubName);
     
+    console.log(`Buscando preço para: ${playerName} (${normalizedPlayerName}) do ${clubName}`);
+    
     // Busca exata primeiro
     const exactMatch = Object.values(cartolaData.atletas).find(atleta => {
         const atletaNome = normalizeString(atleta.apelido || atleta.nome);
-        return atletaNome === normalizedPlayerName;
+        const match = atletaNome === normalizedPlayerName;
+        if (match) {
+            console.log(`Match exato encontrado: ${atleta.apelido || atleta.nome} - Preço: ${atleta.preco_num}`);
+        }
+        return match;
     });
     
     if (exactMatch) {
         return { price: exactMatch.preco_num || exactMatch.preco, found: true, player: exactMatch };
     }
     
-    // Busca por nome similar
+    // Busca por apelido similar
     const similarMatch = Object.values(cartolaData.atletas).find(atleta => {
         const atletaNome = normalizeString(atleta.apelido || atleta.nome);
-        return atletaNome.includes(normalizedPlayerName) || normalizedPlayerName.includes(atletaNome);
+        const match = atletaNome.includes(normalizedPlayerName) || normalizedPlayerName.includes(atletaNome);
+        if (match) {
+            console.log(`Match similar encontrado: ${atleta.apelido || atleta.nome} - Preço: ${atleta.preco_num}`);
+        }
+        return match;
     });
     
     if (similarMatch) {
         return { price: similarMatch.preco_num || similarMatch.preco, found: true, player: similarMatch, clubMismatch: true };
     }
     
+    console.log(`Jogador não encontrado: ${playerName}`);
     return { price: null, found: false };
 }
 

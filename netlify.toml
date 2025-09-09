@@ -4,6 +4,9 @@
   # Diretório de publicação (pasta raiz do projeto)
   publish = "."
   
+  # Diretório das funções serverless
+  functions = "netlify/functions"
+  
   # Comando de build (não necessário para site estático)
   command = "echo 'Site estático pronto para deploy'"
 
@@ -31,13 +34,12 @@
   [headers.values]
     Cache-Control = "public, max-age=86400"
 
-# Configuração para SPA (Single Page Application)
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
-  conditions = {Role = ["admin"], Country = ["US"]}
-  force = false
+# Configuração para SPA (Single Page Application) - comentado para não interferir com funções
+# [[redirects]]
+#   from = "/*"
+#   to = "/index.html"
+#   status = 200
+#   force = false
 
 # Configurações de ambiente
 [context.production.environment]
