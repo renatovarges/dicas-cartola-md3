@@ -810,13 +810,28 @@ function downloadImage(format = 'png') {
         artLayout.classList.add('export-2900');
     } else if (width === 4350) {
         artLayout.classList.add('export-4350');
+    }    // Calcular scale seguro baseado no tamanho total para evitar canvas muito grande
+    const maxCanvasSize = 16384; // Limite seguro para a maioria dos navegadores
+    const maxPixels = 50000000; // 50 megapixels como limite seguro
+    const totalPixels = width * height;
+    
+    let safeScale = 1;
+    
+    // Se a resolução já é grande, não aplicar scale adicional
+    if (width >= 2900 || totalPixels > maxPixels) {
+        safeScale = 1;
+    } else {
+        // Para resoluções menores, permitir scale maior para melhor qualidade
+        safeScale = Math.min(2, maxCanvasSize / Math.max(width, height));
     }
     
-    // Gerar imagem com html2canvas com configurações de alta qualidade
+    console.log(`Configuração de exportação MD3: ${width}x${height}, scale: ${safeScale}, pixels totais: ${(width * safeScale * height * safeScale).toLocaleString()}`);
+    
+    // Gerar imagem com html2canvas com configurações otimizadas
     html2canvas(artLayout, {
         width: width,
         height: height,
-        scale: Math.max(scaleFactor, 2), // Mínimo de 2x para melhor qualidade
+        scale: safeScale,
         useCORS: true,
         allowTaint: true,
         backgroundColor: '#1a1a1a',
