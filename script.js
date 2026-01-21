@@ -96,9 +96,10 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
-    // Carregar token salvo no campo de input
-    if (gatoMestreToken) {
-        gatoMestreTokenInput.value = gatoMestreToken;
+    // Carregar Refresh Token salvo no campo de input
+    const savedRefreshToken = localStorage.getItem('gatoMestreRefreshToken');
+    if (savedRefreshToken) {
+        gatoMestreTokenInput.value = savedRefreshToken;
     }
     
     // Carregar dados do Cartola na inicialização
@@ -225,9 +226,55 @@ function parseLocalCSV(csvText) {
     return { atletas: players };
 }
 
+// Função para obter novo Access Token usando Refresh Token
+async function getNewAccessToken() {
+    const refreshToken = localStorage.getItem('gatoMestreRefreshToken');
+    
+    if (!refreshToken || refreshToken.trim() === '') {
+        console.log('Refresh Token não configurado.');
+        return null;
+    }
+    
+    try {
+        console.log('Obtendo novo Access Token...');
+        const response = await fetch('https://web-api.globoid.globo.com/v1/refresh-token', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                client_id: 'cartola-web@apps.globoid',
+                refresh_token: refreshToken
+            })
+        });
+        
+        if (!response.ok) {
+            console.error('Erro ao obter novo Access Token:', response.status);
+            if (response.status === 401 || response.status === 403) {
+                alert('Refresh Token inválido ou expirado. Por favor, configure novamente.');
+            }
+            return null;
+        }
+        
+        const data = await response.json();
+        console.log('Novo Access Token obtido com sucesso');
+        return data.access_token;
+        
+    } catch (error) {
+        console.error('Erro ao obter Access Token:', error);
+        return null;
+    }
+}
+
 // Função para carregar dados da API do Gato Mestre
 async function loadGatoMestreData() {
-    if (!gatoMestreToken || gatoMestreToken.trim() === '') {
+    // Tentar obter novo Access Token usando Refresh Token
+    const accessToken = await getNewAccessToken();
+    
+    // Se não conseguiu obter Access Token, tentar usar o token manual (fallback)
+    const tokenToUse = accessToken || gatoMestreToken;
+    
+    if (!tokenToUse || tokenToUse.trim() === '') {
         console.log('Token do Gato Mestre não configurado. MPV não será exibido.');
         return;
     }
@@ -237,7 +284,7 @@ async function loadGatoMestreData() {
         const response = await fetch(GATOMESTRE_API_URL, {
             method: 'GET',
             headers: {
-                'Authorization': gatoMestreToken,
+                'Authorization': tokenToUse,
                 'Accept': 'application/json'
             }
         });
@@ -260,11 +307,12 @@ async function loadGatoMestreData() {
     }
 }
 
-// Função para configurar o token do Gato Mestre
+// Função para configurar o Refresh Token do Gato Mestre
 function setGatoMestreToken(token) {
-    gatoMestreToken = token;
-    localStorage.setItem('gatoMestreToken', token);
-    console.log('Token do Gato Mestre salvo com sucesso');
+    // Salvar como Refresh Token
+    localStorage.setItem('gatoMestreRefreshToken', token);
+    console.log('Refresh Token do Gato Mestre salvo com sucesso');
+    alert('Refresh Token salvo! Agora você não precisa mais copiar token manualmente. Apenas clique em "Atualizar Mercado"!');
     // Recarregar dados do Gato Mestre com o novo token
     loadGatoMestreData();
 }
