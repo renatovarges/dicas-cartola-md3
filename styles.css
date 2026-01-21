@@ -608,6 +608,7 @@ body {
     font-size: 48px;
     font-weight: bold;
     color: white;
+    flex: 0 0 75px;
     line-height: 1;
     flex-shrink: 0;
     min-width: 75px;
@@ -640,6 +641,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
+    flex: 0 0 130px;
 }
 
 .player-mpv {
@@ -652,6 +654,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
+    flex: 0 0 75px;
 }
 
 .player-data {
