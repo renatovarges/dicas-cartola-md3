@@ -599,6 +599,7 @@ body {
 
 .confidence-level {
     width: 75px;
+    min-width: 75px;
     height: 75px;
     border-radius: 50%;
     display: flex;
@@ -633,7 +634,20 @@ body {
     font-size: 48px;
     font-weight: bold;
     color: #ffffff;
-    min-width: 140px;
+    min-width: 130px;
+    width: 130px;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.player-mpv {
+    font-size: 48px;
+    font-weight: bold;
+    color: #ffffff;
+    min-width: 75px;
+    width: 75px;
     text-align: center;
     display: flex;
     align-items: center;
