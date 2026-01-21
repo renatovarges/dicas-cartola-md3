@@ -440,14 +440,11 @@ body {
     overflow: visible;
 }
 
-.player-data {
+.player-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    width: 385px;
-    gap: 20px;
-    flex-shrink: 0;
-}0px 45px;
+    padding: 20px 45px;
     background: rgba(0,0,0,0.6);
     border-radius: 12px;
     border-left: 5px solid #d4af37;
@@ -461,7 +458,7 @@ body {
 
 /* .player-row:hover {
     background: rgba(255,255,255,0.05);
-    border-color: #ffd700;
+    border-color: #d4af37;
     transform: translateX(3px);
 } */
 
@@ -521,12 +518,6 @@ body {
     -webkit-transform: translateZ(0);
     transform: translateZ(0);
     will-change: transform;
-}
-
-/* Manter compatibilidade com .team-badge para media queries */
-.team-badge {
-    width: 85px;
-    height: 85px;
 }
 
 .player-icons {
@@ -602,7 +593,6 @@ body {
 
 .confidence-level {
     width: 75px;
-    min-width: 75px;
     height: 75px;
     border-radius: 50%;
     display: flex;
@@ -611,10 +601,10 @@ body {
     font-size: 48px;
     font-weight: bold;
     color: white;
-    flex: 0 0 75px;
     line-height: 1;
     flex-shrink: 0;
     min-width: 75px;
+    max-width: 75px;
     text-align: center;
     text-transform: uppercase;
     letter-spacing: 0;
@@ -638,46 +628,50 @@ body {
     font-size: 48px;
     font-weight: bold;
     color: #ffffff;
-    min-width: 130px;
-    width: 130px;
+    width: 140px;
+    min-width: 140px;
+    max-width: 140px;
     text-align: center;
     display: flex;
     align-items: center;
     justify-content: center;
-    flex: 0 0 130px;
+    flex-shrink: 0;
 }
 
 .player-mpv {
     font-size: 48px;
     font-weight: bold;
-    color: #ffffff;
-    min-width: 75px;
-    width: 75px;
+    color: #ffd700;
+    width: 130px;
+    min-width: 130px;
+    max-width: 130px;
     text-align: center;
     display: flex;
     align-items: center;
     justify-content: center;
-    flex: 0 0 75px;
+    flex-shrink: 0;
+}
+
+.player-mpv.mpv-green {
+    color: #00FF00;
+}
+
+.player-mpv.mpv-white {
+    color: #FFFFFF;
+}
+
+.player-mpv.mpv-red {
+    color: #FF0000;
 }
 
 .player-data {
     display: flex;
+    justify-content: space-between;
     align-items: center;
-    justify-content: flex-start;
-    gap: 40px;
+    width: 385px;
+    gap: 20px;
+    flex-shrink: 0;
 }
-
-/* Coloração do MPV */
-.mpv-green {
-    color: #4CAF50 !important;
-    font-weight: bold;
-}
-
-.mpv-white {
-    color: #ffffff !important;
-}
-
-.mpv-red {
     color: #ff4444 !important;
     font-weight: bold;
 }
