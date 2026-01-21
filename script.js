@@ -1,4 +1,5 @@
 // Configurações globais
+// Última atualização: 21/01/2026 - Forçar deploy completo com escudos novos
 const CARTOLA_API_URL = '/.netlify/functions/cartola-api';
 const GATOMESTRE_API_URL = '/.netlify/functions/gatomestre-api';
 const CANVAS_WIDTH = 2900;
