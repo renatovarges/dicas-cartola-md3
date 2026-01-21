@@ -70,7 +70,7 @@ body {
     top: 20px;
     right: 20px;
     background: rgba(0, 0, 0, 0.95);
-    border: 2px solid #2d7d2d;
+    border: 2px solid #d4af37;
     padding: 20px;
     border-radius: 12px;
     color: white;
@@ -94,7 +94,7 @@ body {
 .export-options select {
     padding: 8px;
     border-radius: 6px;
-    border: 1px solid #2d7d2d;
+    border: 1px solid #d4af37;
     background: #000000;
     color: white;
 }
@@ -125,7 +125,7 @@ body {
 }
 
 .controls h1 {
-    color: #2d7d2d;
+    color: #d4af37;
     margin-bottom: 20px;
 }
 
@@ -149,7 +149,7 @@ body {
 
 .controls input[type="number"] {
     padding: 10px;
-    border: 2px solid #2d7d2d;
+    border: 2px solid #d4af37;
     border-radius: 5px;
     background: #000000;
     color: white;
@@ -160,13 +160,13 @@ body {
 
 .controls input[type="number"]:focus {
     outline: none;
-    border-color: #1a5a1a;
-    box-shadow: 0 0 5px rgba(45, 125, 45, 0.3);
+    border-color: #b8860b;
+    box-shadow: 0 0 5px rgba(212, 175, 55, 0.3);
 }
 
 .upload-section button {
     padding: 12px 24px;
-    background: #2d7d2d;
+    background: #d4af37;
     color: white;
     border: none;
     border-radius: 5px;
@@ -176,7 +176,7 @@ body {
 }
 
 .upload-section button:hover {
-    background: #1a5a1a;
+    background: #b8860b;
 }
 
 .upload-section button:disabled {
@@ -193,7 +193,7 @@ body {
 .art-layout {
     width: 2900px;
     height: 4800px;
-    background: linear-gradient(135deg, #000000 0%, #1a5a1a 50%, #2d7d2d 100%);
+    background: linear-gradient(135deg, #000000 0%, #b8860b 50%, #d4af37 100%);
     position: relative;
     /* Melhorar qualidade de renderização */
     -webkit-font-smoothing: antialiased;
@@ -205,7 +205,7 @@ body {
     transform: translateZ(0);
     margin: 0 auto;
     border-radius: 20px;
-    border: 8px solid #2d7d2d;
+    border: 8px solid #d4af37;
     overflow: visible;
     box-shadow: 0 10px 30px rgba(0,0,0,0.5);
     transform-origin: top left;
@@ -277,7 +277,6 @@ body {
     padding: 40px;
     min-height: auto;
     height: auto;
-    align-items: start;
 }
 
 /* Posições com menos jogadores (técnicos e goleiros) */
@@ -303,7 +302,7 @@ body {
 /* Bloco de posição */
 .position-block {
     background: rgba(0,0,0,0.9);
-    border: 3px solid #2d7d2d;
+    border: 3px solid #d4af37;
     border-radius: 20px;
     padding: 35px;
     box-shadow: 0 8px 25px rgba(0,0,0,0.4), 0 0 30px rgba(212,175,55,0.2);
@@ -312,10 +311,8 @@ body {
     position: relative;
     transition: all 0.3s ease;
     min-height: auto;
-    height: fit-content;
+    height: auto;
     overflow: visible;
-    flex: 1;
-    align-self: stretch;
 }
 
 /* Marca d'água como pseudo-elemento para preservar transparência no PNG */
@@ -360,10 +357,10 @@ body {
     align-items: center;
     margin-bottom: 25px;
     padding: 30px 35px;
-    background: linear-gradient(135deg, #2d7d2d 0%, #1a5a1a 100%);
+    background: linear-gradient(135deg, #d4af37 0%, #b8860b 100%);
     border-radius: 15px;
-    border: 3px solid #2d7d2d;
-    box-shadow: 0 6px 20px rgba(45, 125, 45, 0.4), inset 0 2px 4px rgba(255,255,255,0.1);
+    border: 3px solid #ffd700;
+    box-shadow: 0 6px 20px rgba(212, 175, 55, 0.4), inset 0 2px 4px rgba(255,255,255,0.1);
     position: relative;
     overflow: hidden;
     min-height: 110px;
@@ -377,7 +374,7 @@ body {
     left: 0;
     right: 0;
     height: 3px;
-    background: linear-gradient(90deg, transparent 0%, #2d7d2d 50%, transparent 100%);
+    background: linear-gradient(90deg, transparent 0%, #ffd700 50%, transparent 100%);
 }
 
 .position-header h2 {
@@ -410,26 +407,17 @@ body {
     z-index: 1;
     align-items: center;
     line-height: 1;
-    width: 385px;
-    gap: 20px;
+    width: 200px;
 }
 
 .header-labels span:first-child {
     text-align: center;
-    min-width: 75px;
-    width: 75px;
-}
-
-.header-labels span:nth-child(2) {
-    text-align: center;
-    min-width: 140px;
-    width: 140px;
+    min-width: 60px;
 }
 
 .header-labels span:last-child {
     text-align: center;
-    min-width: 130px;
-    width: 130px;
+    min-width: 140px;
 }
 
 /* Lista de jogadores */
@@ -439,20 +427,19 @@ body {
     flex-direction: column;
     gap: 15px;
     min-height: auto;
-    height: fit-content;
+    height: auto;
     overflow: visible;
-    flex-grow: 1;
 }
 
 .player-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 20px 45px;
+    padding: 20px 30px;
     background: rgba(0,0,0,0.6);
     border-radius: 12px;
-    border-left: 5px solid #2d7d2d;
-    border: 1px solid #1a5a1a;
+    border-left: 5px solid #d4af37;
+    border: 1px solid #b8860b;
     transition: all 0.3s ease;
     overflow: visible;
     box-sizing: border-box;
@@ -462,7 +449,7 @@ body {
 
 /* .player-row:hover {
     background: rgba(255,255,255,0.05);
-    border-color: #2d7d2d;
+    border-color: #ffd700;
     transform: translateX(3px);
 } */
 
@@ -522,6 +509,12 @@ body {
     -webkit-transform: translateZ(0);
     transform: translateZ(0);
     will-change: transform;
+}
+
+/* Manter compatibilidade com .team-badge para media queries */
+.team-badge {
+    width: 85px;
+    height: 85px;
 }
 
 .player-icons {
@@ -608,7 +601,6 @@ body {
     line-height: 1;
     flex-shrink: 0;
     min-width: 75px;
-    max-width: 75px;
     text-align: center;
     text-transform: uppercase;
     letter-spacing: 0;
@@ -632,49 +624,11 @@ body {
     font-size: 48px;
     font-weight: bold;
     color: #ffffff;
-    width: 140px;
     min-width: 140px;
-    max-width: 140px;
     text-align: center;
     display: flex;
     align-items: center;
     justify-content: center;
-    flex-shrink: 0;
-}
-
-.player-mpv {
-    font-size: 48px;
-    font-weight: bold;
-    color: #ffd700;
-    width: 130px;
-    min-width: 130px;
-    max-width: 130px;
-    text-align: center;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-}
-
-.player-mpv.mpv-green {
-    color: #00FF00;
-}
-
-.player-mpv.mpv-white {
-    color: #FFFFFF;
-}
-
-.player-mpv.mpv-red {
-    color: #FF0000;
-}
-
-.player-data {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    width: 385px;
-    gap: 20px;
-    flex-shrink: 0;
 }
 
 /* Footer */
@@ -683,7 +637,7 @@ body {
     bottom: 0;
     left: 30px;
     right: 30px;
-    background: #2d7d2d;
+    background: #d4af37;
     color: white;
     padding: 0;
     text-align: center;
@@ -800,7 +754,7 @@ img[src$=".svg"] {
     height: 50px;
     margin: -25px 0 0 -25px;
     border: 5px solid #f3f3f3;
-    border-top: 5px solid #2d7d2d;
+    border-top: 5px solid #d4af37;
     border-radius: 50%;
     animation: spin 1s linear infinite;
 }
@@ -819,7 +773,7 @@ img[src$=".svg"] {
     margin: 4px 0;
     background: rgba(255, 255, 255, 0.1);
     border-radius: 8px;
-    border-left: 4px solid #2d7d2d;
+    border-left: 4px solid #d4af37;
     font-size: 14px;
     transition: all 0.3s ease;
 }
@@ -1397,7 +1351,7 @@ img[src$=".svg"] {
 /* ==== CORRE��O PARA EXPORTA��O DO PNG ==== */
 .players-list {
     /* Garante altura m�nima para n�o cortar o �ltimo nome */
-    min-height: auto; /* ajuste se necess�rio */
+    min-height: 600px; /* ajuste se necess�rio */
     overflow: visible !important; /* impede que corte o conte�do no PNG */
 }
 
@@ -1418,7 +1372,7 @@ img[src$=".svg"] {
 /* Regras que s� afetam a exporta��o, n�o o layout normal do site */
 .art-layout.export-4350 .players-list,
 .art-layout[style*="width: 4350px"] .players-list {
-    min-height: auto !important;
+    min-height: 800px !important;
     height: auto !important;
     max-height: none !important;
 }
@@ -1428,7 +1382,7 @@ img[src$=".svg"] {
 .art-layout[style*="width: 4350px"] {
     overflow: visible !important;
     height: auto !important;
-    border: 8px solid #2d7d2d !important;
+    border: 8px solid #d4af37 !important;
     box-sizing: border-box !important;
 }
 
@@ -1436,7 +1390,7 @@ img[src$=".svg"] {
 .art-layout.export-1450,
 .art-layout.export-2900,
 .art-layout.export-4350 {
-    border: 8px solid #2d7d2d !important;
+    border: 8px solid #d4af37 !important;
     box-sizing: border-box !important;
 }
 /* ===== FIM DA CORRE��O ESPEC�FICA ===== */
