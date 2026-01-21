@@ -407,17 +407,26 @@ body {
     z-index: 1;
     align-items: center;
     line-height: 1;
-    width: 200px;
+    width: 385px;
+    gap: 20px;
 }
 
 .header-labels span:first-child {
     text-align: center;
-    min-width: 60px;
+    min-width: 75px;
+    width: 75px;
+}
+
+.header-labels span:nth-child(2) {
+    text-align: center;
+    min-width: 140px;
+    width: 140px;
 }
 
 .header-labels span:last-child {
     text-align: center;
-    min-width: 140px;
+    min-width: 130px;
+    width: 130px;
 }
 
 /* Lista de jogadores */
