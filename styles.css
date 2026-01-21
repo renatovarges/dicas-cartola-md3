@@ -419,14 +419,14 @@ body {
 
 .header-labels span:nth-child(2) {
     text-align: center;
-    min-width: 140px;
-    width: 140px;
+    min-width: 130px;
+    width: 130px;
 }
 
 .header-labels span:last-child {
     text-align: center;
-    min-width: 130px;
-    width: 130px;
+    min-width: 75px;
+    width: 75px;
 }
 
 /* Lista de jogadores */
@@ -660,6 +660,21 @@ body {
     justify-content: space-between;
     gap: 20px;
     width: 385px;
+}
+
+/* Coloração do MPV */
+.mpv-green {
+    color: #4CAF50 !important;
+    font-weight: bold;
+}
+
+.mpv-white {
+    color: #ffffff !important;
+}
+
+.mpv-red {
+    color: #ff4444 !important;
+    font-weight: bold;
 }
 
 /* Footer */
