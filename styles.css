@@ -440,12 +440,14 @@ body {
     overflow: visible;
 }
 
-.player-row {
+.player-data {
     display: flex;
-    justify-content: flex-start;
+    justify-content: space-between;
     align-items: center;
-    gap: 50px;
-    padding: 20px 30px;
+    width: 385px;
+    gap: 20px;
+    flex-shrink: 0;
+}0px 45px;
     background: rgba(0,0,0,0.6);
     border-radius: 12px;
     border-left: 5px solid #d4af37;
