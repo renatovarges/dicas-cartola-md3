@@ -257,6 +257,13 @@ async function getNewAccessToken() {
         
         const data = await response.json();
         console.log('Novo Access Token obtido com sucesso');
+        
+        // Salvar o novo Refresh Token automaticamente
+        if (data.refresh_token) {
+            localStorage.setItem('gatoMestreRefreshToken', data.refresh_token);
+            console.log('Novo Refresh Token salvo automaticamente');
+        }
+        
         return data.access_token;
         
     } catch (error) {
