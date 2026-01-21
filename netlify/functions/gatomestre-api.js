@@ -1,5 +1,5 @@
-// Função serverless para fazer proxy da API do Gato Mestre
-// Resolve o problema de CORS ao fazer a requisição no servidor
+// Netlify Function para buscar dados do Gato Mestre
+// Recebe o Access Token do cliente e faz a requisição no servidor (sem CORS)
 
 exports.handler = async function(event, context) {
     // Headers CORS
@@ -12,11 +12,7 @@ exports.handler = async function(event, context) {
 
     // Responder a requisições OPTIONS (preflight)
     if (event.httpMethod === 'OPTIONS') {
-        return {
-            statusCode: 200,
-            headers,
-            body: ''
-        };
+        return { statusCode: 200, headers, body: '' };
     }
 
     // Apenas aceitar requisições GET
@@ -40,8 +36,8 @@ exports.handler = async function(event, context) {
     }
 
     try {
-        // Fazer requisição para a API do Gato Mestre
-        const response = await fetch('https://api.cartola.globo.com/auth/gatomestre/atletas', {
+        // Fazer requisição para a API do Gato Mestre (endpoint correto)
+        const response = await fetch('https://api.cartola.globo.com/gato-mestre/mercado', {
             method: 'GET',
             headers: {
                 'Authorization': authToken,
@@ -51,6 +47,7 @@ exports.handler = async function(event, context) {
         });
 
         if (!response.ok) {
+            console.error(`Erro na API: ${response.status}`);
             return {
                 statusCode: response.status,
                 headers,
