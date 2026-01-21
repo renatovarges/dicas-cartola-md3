@@ -38,8 +38,14 @@ const CLUB_MAP = {
     'ATHLETICO PR': 'athletico-pr',
     'ATHLETICO': 'athletico-pr',
     'CORITIBA': 'coritiba',
+    'Coritiba': 'coritiba',
+    'coritiba': 'coritiba',
     'CHAPECOENSE': 'chapecoense',
-    'REMO': 'remo'
+    'Chapecoense': 'chapecoense',
+    'chapecoense': 'chapecoense',
+    'REMO': 'remo',
+    'Remo': 'remo',
+    'remo': 'remo'
 };
 
 // Variáveis globais
