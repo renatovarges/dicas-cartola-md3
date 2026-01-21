@@ -1,7 +1,6 @@
 // Configurações globais
-const CARTOLA_API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
-    ? 'https://api.cartola.globo.com/atletas/mercado'
-    : '/.netlify/functions/cartola-api';
+const CARTOLA_API_URL = '/.netlify/functions/cartola-api';
+const GATOMESTRE_API_URL = '/.netlify/functions/gatomestre-api';
 const CANVAS_WIDTH = 2900;
 const CANVAS_HEIGHT = 4800;
 
@@ -32,21 +31,25 @@ const CLUB_MAP = {
     'GRÊMIO': 'gremio',
     'INTERNACIONAL': 'internacional',
     'BAHIA': 'bahia',
-    'SPORT': 'sport',
-    'CEARÁ': 'ceará',
-    'FORTALEZA': 'fortaleza',
     'VITÓRIA': 'vitória',
-    'JUVENTUDE': 'juventude',
     'RED BULL BRAGANTINO': 'red bull bragantino',
-    'MIRASSOL': 'mirassol'
+    'MIRASSOL': 'mirassol',
+    'ATHLETICO-PR': 'athletico-pr',
+    'ATHLETICO PR': 'athletico-pr',
+    'ATHLETICO': 'athletico-pr',
+    'CORITIBA': 'coritiba',
+    'CHAPECOENSE': 'chapecoense',
+    'REMO': 'remo'
 };
 
 // Variáveis globais
 let cartolaData = null;
+let gatoMestreData = null;
+let gatoMestreToken = localStorage.getItem('gatoMestreToken') || '';
 let playerData = [];
 
 // Elementos DOM
-let artLayout, canvas, ctx;
+let artLayout, canvas, ctx, generateBtn;
 
 // Inicializar elementos DOM após carregamento
 function initializeDOM() {
@@ -60,12 +63,14 @@ function initializeDOM() {
 // Event listeners
 document.addEventListener('DOMContentLoaded', function() {
     const fileInput = document.getElementById('fileInput');
-    const generateBtn = document.getElementById('generateBtn');
+    generateBtn = document.getElementById('generateBtn');
     const updateMarketBtn = document.getElementById('updateMarketBtn');
     const downloadPngBtn = document.getElementById('downloadPngBtn');
     const downloadPdfBtn = document.getElementById('downloadPdfBtn');
     const downloadPdfVectorBtn = document.getElementById('downloadPdfVectorBtn');
     const roundNumberInput = document.getElementById('roundNumber');
+    const saveTokenBtn = document.getElementById('saveTokenBtn');
+    const gatoMestreTokenInput = document.getElementById('gatoMestreToken');
     
     fileInput.addEventListener('change', handleFileUpload);
     generateBtn.addEventListener('click', generateArt);
@@ -74,10 +79,26 @@ document.addEventListener('DOMContentLoaded', function() {
     downloadPdfBtn.addEventListener('click', () => downloadImage('pdf'));
     downloadPdfVectorBtn.addEventListener('click', () => downloadImage('pdf-vector'));
     roundNumberInput.addEventListener('input', updateArtTitle);
+    saveTokenBtn.addEventListener('click', () => {
+        const token = gatoMestreTokenInput.value.trim();
+        if (token) {
+            setGatoMestreToken(token);
+            alert('Token salvo com sucesso! Os dados de MPV serão carregados.');
+        } else {
+            alert('Por favor, insira um token válido.');
+        }
+    });
+    
+    // Carregar token salvo no campo de input
+    if (gatoMestreToken) {
+        gatoMestreTokenInput.value = gatoMestreToken;
+    }
     
     // Carregar dados do Cartola na inicialização
     loadCartolaData().then(() => {
         console.log('Dados do Cartola carregados na inicialização');
+        // Carregar dados do Gato Mestre
+        loadGatoMestreData();
         // Carregar arquivo de exemplo automaticamente após carregar dados do Cartola
         loadExampleData();
     });
@@ -118,9 +139,9 @@ function updateArtTitle() {
     const artTitle = document.getElementById('artTitle');
     
     if (roundNumber && roundNumber.trim() !== '') {
-        artTitle.textContent = `DICAS POR POSIÇÃO - MD3 - RODADA ${roundNumber}`;
+        artTitle.textContent = `DICAS POR POSIÇÃO - TCC - RODADA ${roundNumber}`;
     } else {
-        artTitle.textContent = 'DICAS POR POSIÇÃO - MD3';
+        artTitle.textContent = 'DICAS POR POSIÇÃO - TCC';
     }
 }
 
@@ -197,6 +218,93 @@ function parseLocalCSV(csvText) {
     return { atletas: players };
 }
 
+// Função para carregar dados da API do Gato Mestre
+async function loadGatoMestreData() {
+    if (!gatoMestreToken || gatoMestreToken.trim() === '') {
+        console.log('Token do Gato Mestre não configurado. MPV não será exibido.');
+        return;
+    }
+    
+    try {
+        console.log('Carregando dados do Gato Mestre...');
+        const response = await fetch(GATOMESTRE_API_URL, {
+            method: 'GET',
+            headers: {
+                'Authorization': gatoMestreToken,
+                'Accept': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            if (response.status === 401 || response.status === 403) {
+                console.error('Token do Gato Mestre inválido ou expirado. Por favor, atualize o token.');
+                alert('Token do Gato Mestre expirado. Por favor, atualize o token nas configurações.');
+                return;
+            }
+            throw new Error(`Erro na API do Gato Mestre: ${response.status}`);
+        }
+        
+        gatoMestreData = await response.json();
+        console.log('Dados do Gato Mestre carregados:', Object.keys(gatoMestreData).length, 'jogadores');
+        
+    } catch (error) {
+        console.error('Erro ao carregar dados do Gato Mestre:', error);
+        gatoMestreData = null;
+    }
+}
+
+// Função para configurar o token do Gato Mestre
+function setGatoMestreToken(token) {
+    gatoMestreToken = token;
+    localStorage.setItem('gatoMestreToken', token);
+    console.log('Token do Gato Mestre salvo com sucesso');
+    // Recarregar dados do Gato Mestre com o novo token
+    loadGatoMestreData();
+}
+
+// Função para obter MPV de um jogador
+function getPlayerMPV(atletaId) {
+    if (!gatoMestreData || !atletaId) {
+        return null;
+    }
+    
+    const playerData = gatoMestreData[atletaId];
+    if (playerData && playerData.minimo_para_valorizar !== undefined) {
+        return playerData.minimo_para_valorizar;
+    }
+    
+    return null;
+}
+
+// Função para determinar a cor do MPV baseada na posição e valor
+function getMPVColorClass(posicao, mpv) {
+    const pos = posicao.toUpperCase();
+    
+    // Técnicos, Goleiros e Zagueiros
+    if (pos === 'TEC' || pos === 'GOL' || pos === 'ZAG') {
+        if (mpv <= 2.5) return 'mpv-green';
+        if (mpv <= 6.0) return 'mpv-white';
+        return 'mpv-red';
+    }
+    
+    // Laterais
+    if (pos === 'LAT') {
+        if (mpv <= 3.0) return 'mpv-green';
+        if (mpv <= 6.5) return 'mpv-white';
+        return 'mpv-red';
+    }
+    
+    // Meias e Atacantes
+    if (pos === 'MEI' || pos === 'ATA') {
+        if (mpv <= 3.0) return 'mpv-green';
+        if (mpv <= 7.0) return 'mpv-white';
+        return 'mpv-red';
+    }
+    
+    // Padrão (branco) se não se encaixar em nenhuma regra
+    return 'mpv-white';
+}
+
 // Função para processar upload de arquivo
 function handleFileUpload(event) {
     const file = event.target.files[0];
@@ -256,7 +364,7 @@ function parsePlayerData(content) {
                 capitao: false,
                 unanimidade: false,
                 luxo: false,
-                fora20: false,
+    
                 preco: null
             };
             
@@ -280,11 +388,7 @@ function parsePlayerData(content) {
                     player.luxo = true;
                 }
                 
-                // Detectar fora dos 20+
-                if (indicator === 'fora 20' || indicator === 'fora dos 20' || indicator === 'fora20' || 
-                    indicator === 'fora' || indicator.includes('fora') && indicator.includes('20')) {
-                    player.fora20 = true;
-                }
+
             }
             
             // Log específico para técnicos e Lyanco
@@ -368,17 +472,26 @@ function normalizeClubName(clubName) {
         'vitória': ['vitória', 'vitoria', 'vit', 'leao da barra'],
         'juventude': ['juventude', 'juv', 'papo'],
         'red bull bragantino': ['red bull bragantino', 'bragantino', 'rbr', 'red bull'],
-        'mirassol': ['mirassol', 'mir']
+        'mirassol': ['mirassol', 'mir'],
+        'athletico-pr': ['athletico-pr', 'athletico pr', 'athletico', 'cap', 'furacao'],
+        'coritiba': ['coritiba', 'coxa', 'cfc'],
+        'chapecoense': ['chapecoense', 'chape', 'verdao'],
+        'remo': ['remo', 'leao azul']
     };
     
     const normalized = normalizeString(clubName.toLowerCase());
     
+    // Log para debug de clubes
+    console.log(`[normalizeClubName] Clube original: "${clubName}" | Normalizado: "${normalized}"`);
+    
     for (const [key, variations] of Object.entries(clubMap)) {
-        if (variations.some(variation => normalized.includes(normalizeString(variation.toLowerCase())))) {
+        if (variations.some(variation => normalized === normalizeString(variation.toLowerCase()))) {
+            console.log(`[normalizeClubName] Match encontrado: "${clubName}" → "${key}"`);
             return key;
         }
     }
     
+    console.log(`[normalizeClubName] Nenhum match encontrado para "${clubName}", retornando normalizado: "${normalized}"`);
     return normalized.replace(/\s+/g, ' ');
 }
 
@@ -599,14 +712,14 @@ function applyDynamicLayout(playersByPosition) {
     
     // Calcular proporções baseadas na quantidade de jogadores
     // Pesos ajustados para dar mais espaço aos meias e atacantes
-    const baseWeight1 = 0.25; // Técnicos/Goleiros - peso menor
-    const baseWeight2 = 0.3;  // Laterais/Zagueiros - peso médio
-    const baseWeight3 = 0.4;  // Meias/Atacantes - peso maior para evitar corte
-    const playerWeight = 0.08; // Peso adicional aumentado por jogador
+    const baseWeight1 = 0.2; // Técnicos/Goleiros - peso menor
+    const baseWeight2 = 0.25;  // Laterais/Zagueiros - peso médio
+    const baseWeight3 = 0.55;  // Meias/Atacantes - peso maior para evitar corte
+    const playerWeight = 0.1; // Peso adicional aumentado por jogador
     
     const row1Weight = Math.max(baseWeight1, baseWeight1 + (row1Count * playerWeight));
     const row2Weight = Math.max(baseWeight2, baseWeight2 + (row2Count * playerWeight));
-    const row3Weight = Math.max(baseWeight3, baseWeight3 + (row3Count * playerWeight * 1.2)); // Peso extra para linha 3
+    const row3Weight = Math.max(baseWeight3, baseWeight3 + (row3Count * playerWeight * 1.5)); // Peso extra para linha 3
     
     // Normalizar os pesos para que a soma seja proporcional
     const totalWeight = row1Weight + row2Weight + row3Weight;
@@ -648,9 +761,32 @@ function createPlayerElement(player) {
     playerName.className = 'player-name';
     playerName.textContent = player.nome.toUpperCase();
     
-    // Escudo do time
+    // Escudo do time com div de fundo branco
+    const teamBadgeWrapper = document.createElement('div');
+    teamBadgeWrapper.className = 'team-badge-wrapper';
+    
+    // Criar SVG com círculo branco (sempre renderizado pelo html2canvas)
+    const svgNS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(svgNS, 'svg');
+    svg.setAttribute('width', '85');
+    svg.setAttribute('height', '85');
+    svg.setAttribute('viewBox', '0 0 85 85');
+    svg.style.position = 'absolute';
+    svg.style.top = '0';
+    svg.style.left = '0';
+    svg.style.zIndex = '0';
+    
+    const circle = document.createElementNS(svgNS, 'circle');
+    circle.setAttribute('cx', '42.5');
+    circle.setAttribute('cy', '42.5');
+    circle.setAttribute('r', '42.5');
+    circle.setAttribute('fill', '#ffffff');
+    
+    svg.appendChild(circle);
+    teamBadgeWrapper.appendChild(svg);
+    
     const teamBadge = document.createElement('img');
-    teamBadge.className = 'team-badge';
+    teamBadge.className = 'team-badge-img';
     const clubFileName = normalizeClubName(player.clube);
     
     // Log específico para Lyanco
@@ -667,6 +803,8 @@ function createPlayerElement(player) {
         console.log('Erro ao carregar escudo:', this.src);
         this.style.display = 'none';
     };
+    
+    teamBadgeWrapper.appendChild(teamBadge);
     
     // Criar container de ícones
     const playerIcons = document.createElement('div');
@@ -709,16 +847,7 @@ function createPlayerElement(player) {
         console.log('Ícone de capitão adicionado');
     }
     
-    if (player.fora20) {
-        const fora20Icon = document.createElement('img');
-        fora20Icon.src = 'public/icons/fora20.svg';
-        fora20Icon.className = 'icon';
-        fora20Icon.alt = 'Fora dos 20+ escalados';
-        fora20Icon.onerror = function() { console.error('Erro ao carregar ícone fora20'); };
-        fora20Icon.onload = function() { console.log('Ícone fora20 carregado com sucesso'); };
-        playerIcons.appendChild(fora20Icon);
-        console.log('Ícone fora20 adicionado');
-    }
+
     
     console.log(`Total de ícones no container: ${playerIcons.children.length}`);
     console.log(`PlayerIcons HTML:`, playerIcons.outerHTML);
@@ -737,17 +866,42 @@ function createPlayerElement(player) {
         playerPrice.textContent = 'N/E';
     } else {
         const price = priceData.price || 0;
-        playerPrice.textContent = price.toFixed(2);
+        playerPrice.textContent = price.toFixed(1);
     }
     
+    // Mínimo Para Valorizar (MPV)
+    const playerMPV = document.createElement('span');
+    playerMPV.className = 'player-mpv';
+    if (priceData.found && priceData.player && priceData.player.atleta_id) {
+        const mpv = getPlayerMPV(priceData.player.atleta_id);
+        if (mpv !== null) {
+            playerMPV.textContent = mpv.toFixed(1);
+            // Aplicar cor baseada na posição e valor do MPV
+            const colorClass = getMPVColorClass(player.posicao, mpv);
+            if (colorClass) {
+                playerMPV.classList.add(colorClass);
+            }
+        } else {
+            playerMPV.textContent = '-';
+        }
+    } else {
+        playerMPV.textContent = '-';
+    }
+    
+    // Criar container para os dados (C, C$, MPV)
+    const playerData = document.createElement('div');
+    playerData.className = 'player-data';
+    playerData.appendChild(confidenceLevel);
+    playerData.appendChild(playerPrice);
+    playerData.appendChild(playerMPV);
+    
     // Montar estrutura
-    playerInfo.appendChild(teamBadge);
+    playerInfo.appendChild(teamBadgeWrapper);
     playerInfo.appendChild(playerName);
     playerInfo.appendChild(playerIcons);
     
     playerRow.appendChild(playerInfo);
-    playerRow.appendChild(confidenceLevel);
-    playerRow.appendChild(playerPrice);
+    playerRow.appendChild(playerData);
     
     return playerRow;
 }
@@ -785,14 +939,10 @@ function downloadImage(format = 'png') {
     const originalTransform = artLayout.style.transform;
     const originalTransformOrigin = artLayout.style.transformOrigin;
     
-    // Calcular escala baseada na resolução desejada
-    const scaleX = width / 2900;
-    const scaleY = height / 4800;
-    const scale = Math.min(scaleX, scaleY); // Usar a menor escala para manter proporção
-    
+    // Calcular altura real do conteúdo
     artLayout.style.width = width + 'px';
-    artLayout.style.height = height + 'px';
-    artLayout.style.transform = 'scale(1)'; // Garantir escala 1:1 para captura
+    artLayout.style.height = 'auto'; // Permitir altura automática
+    artLayout.style.transform = 'scale(1)';
     artLayout.style.transformOrigin = 'top left';
     artLayout.style.position = 'relative';
     artLayout.style.left = '0';
@@ -802,6 +952,19 @@ function downloadImage(format = 'png') {
     const scaleFactor = width / 2900;
     document.documentElement.style.setProperty('--export-scale', scaleFactor);
     
+    // Forçar recálculo do layout
+    artLayout.offsetHeight;
+    
+    // Calcular altura precisa do conteúdo visível
+    const contentHeight = artLayout.scrollHeight;
+    const minHeight = Math.min(height, contentHeight);
+    
+    // Adicionar margem mínima de segurança (2% da altura original)
+    const safetyMargin = Math.floor(height * 0.02);
+    const optimizedHeight = Math.min(contentHeight + safetyMargin, height);
+    
+    artLayout.style.height = optimizedHeight + 'px';
+    
     // Adicionar classe específica para a resolução
     artLayout.classList.remove('export-1450', 'export-2900', 'export-4350');
     if (width === 1450) {
@@ -810,7 +973,8 @@ function downloadImage(format = 'png') {
         artLayout.classList.add('export-2900');
     } else if (width === 4350) {
         artLayout.classList.add('export-4350');
-    }    // Calcular scale seguro baseado no tamanho total para evitar canvas muito grande
+    }    
+    // Calcular scale seguro baseado no tamanho total para evitar canvas muito grande
     const maxCanvasSize = 16384; // Limite seguro para a maioria dos navegadores
     const maxPixels = 50000000; // 50 megapixels como limite seguro
     const totalPixels = width * height;
@@ -825,12 +989,12 @@ function downloadImage(format = 'png') {
         safeScale = Math.min(2, maxCanvasSize / Math.max(width, height));
     }
     
-    console.log(`Configuração de exportação MD3: ${width}x${height}, scale: ${safeScale}, pixels totais: ${(width * safeScale * height * safeScale).toLocaleString()}`);
+    console.log(`Configuração de exportação: ${width}x${optimizedHeight}, scale: ${safeScale}, pixels totais: ${(width * safeScale * optimizedHeight * safeScale).toLocaleString()}`);
     
     // Gerar imagem com html2canvas com configurações otimizadas
     html2canvas(artLayout, {
         width: width,
-        height: height,
+        height: optimizedHeight,
         scale: safeScale,
         useCORS: true,
         allowTaint: true,
@@ -844,7 +1008,15 @@ function downloadImage(format = 'png') {
         x: 0,
         y: 0,
         windowWidth: width,
-        windowHeight: height
+        windowHeight: optimizedHeight,
+        onclone: function(clonedDoc) {
+            // Forçar background branco nos wrappers de escudos
+            const wrappers = clonedDoc.querySelectorAll('.team-badge-wrapper');
+            wrappers.forEach(wrapper => {
+                wrapper.style.backgroundColor = '#ffffff';
+                wrapper.style.background = '#ffffff';
+            });
+        }
     }).then(canvas => {
         // Restaurar tamanho original
         artLayout.style.width = originalWidth;
