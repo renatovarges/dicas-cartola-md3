@@ -237,13 +237,12 @@ async function getNewAccessToken() {
     
     try {
         console.log('Obtendo novo Access Token...');
-        const response = await fetch('https://web-api.globoid.globo.com/v1/refresh-token', {
+        const response = await fetch('/.netlify/functions/refresh-token-api', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                client_id: 'cartola-web@apps.globoid',
                 refresh_token: refreshToken
             })
         });
@@ -268,14 +267,11 @@ async function getNewAccessToken() {
 
 // Função para carregar dados da API do Gato Mestre
 async function loadGatoMestreData() {
-    // Tentar obter novo Access Token usando Refresh Token
+    // Obter novo Access Token usando Refresh Token
     const accessToken = await getNewAccessToken();
     
-    // Se não conseguiu obter Access Token, tentar usar o token manual (fallback)
-    const tokenToUse = accessToken || gatoMestreToken;
-    
-    if (!tokenToUse || tokenToUse.trim() === '') {
-        console.log('Token do Gato Mestre não configurado. MPV não será exibido.');
+    if (!accessToken || accessToken.trim() === '') {
+        console.log('Não foi possível obter Access Token. Verifique o Refresh Token.');
         return;
     }
     
@@ -284,7 +280,7 @@ async function loadGatoMestreData() {
         const response = await fetch(GATOMESTRE_API_URL, {
             method: 'GET',
             headers: {
-                'Authorization': tokenToUse,
+                'Authorization': accessToken,
                 'Accept': 'application/json'
             }
         });
