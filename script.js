@@ -1,7 +1,7 @@
 // Configurações globais
-// Última atualização: 21/01/2026 - Forçar deploy completo com escudos novos
+// Última atualização: 21/01/2026 - Solução Access Token Manual (1 hora)
 const CARTOLA_API_URL = '/.netlify/functions/cartola-api';
-const GATOMESTRE_API_URL = '/.netlify/functions/gatomestre-api';
+const GATOMESTRE_API_URL = 'https://api.cartola.globo.com/gato-mestre/mercado';
 const CANVAS_WIDTH = 2900;
 const CANVAS_HEIGHT = 4800;
 
@@ -90,25 +90,25 @@ document.addEventListener('DOMContentLoaded', function() {
         const token = gatoMestreTokenInput.value.trim();
         if (token) {
             setGatoMestreToken(token);
-            alert('Token salvo com sucesso! Os dados de MPV serão carregados.');
+            alert('✅ Access Token salvo com sucesso! Dura 1 hora. Os dados de MPV serão carregados agora.');
         } else {
-            alert('Por favor, insira um token válido.');
+            alert('⚠️ Por favor, insira um Access Token válido.');
         }
     });
     
-    // Carregar Refresh Token salvo no campo de input
-    const savedRefreshToken = localStorage.getItem('gatoMestreRefreshToken');
-    if (savedRefreshToken) {
-        gatoMestreTokenInput.value = savedRefreshToken;
+    // Carregar Access Token salvo no campo de input
+    const savedToken = localStorage.getItem('gatoMestreToken');
+    if (savedToken) {
+        gatoMestreTokenInput.value = savedToken;
     }
     
     // Carregar dados do Cartola na inicialização
     loadCartolaData().then(() => {
         console.log('Dados do Cartola carregados na inicialização');
-        // Carregar dados do Gato Mestre
-        loadGatoMestreData();
-        // Carregar arquivo de exemplo automaticamente após carregar dados do Cartola
-        loadExampleData();
+        // Carregar dados do Gato Mestre se houver token
+        if (gatoMestreToken) {
+            loadGatoMestreData();
+        }
     });
     
     // Forçar atualização dos dados a cada 5 minutos
@@ -124,9 +124,13 @@ function updateMarketData() {
     btn.textContent = 'Atualizando...';
     btn.disabled = true;
     
-    loadCartolaData().finally(() => {
+    Promise.all([loadCartolaData(), loadGatoMestreData()]).finally(() => {
         btn.textContent = 'Atualizar Mercado';
         btn.disabled = false;
+        if (playerData.length > 0) {
+            updatePlayerPrices();
+            renderArt();
+        }
     });
 }
 
@@ -147,9 +151,9 @@ function updateArtTitle() {
     const artTitle = document.getElementById('artTitle');
     
     if (roundNumber && roundNumber.trim() !== '') {
-        artTitle.textContent = `DICAS POR POSIÇÃO - TCC - RODADA ${roundNumber}`;
+        artTitle.textContent = `DICAS POR POSIÇÃO - MD3 - RODADA ${roundNumber}`;
     } else {
-        artTitle.textContent = 'DICAS POR POSIÇÃO - TCC';
+        artTitle.textContent = 'DICAS POR POSIÇÃO - MD3';
     }
 }
 
@@ -164,202 +168,97 @@ async function loadCartolaData() {
         }
         
         const apiData = await response.json();
-        console.log('Dados brutos da API:', apiData);
         
-        // Processar dados da API para o formato esperado
         if (apiData && apiData.atletas) {
             cartolaData = {
                 atletas: apiData.atletas
             };
             console.log('Dados do Cartola processados:', Object.keys(cartolaData.atletas).length, 'jogadores');
-            
-            // Verificar se há técnicos nos dados
-            const tecnicos = Object.values(cartolaData.atletas).filter(atleta => atleta.posicao_id === 6);
-            console.log('Técnicos encontrados na API:', tecnicos.length);
-            console.log('Primeiros 3 técnicos:', tecnicos.slice(0, 3).map(t => ({ nome: t.apelido || t.nome, clube: t.clube_id })));
         } else {
             throw new Error('Estrutura de dados da API inválida');
         }
         
     } catch (error) {
         console.error('Erro ao carregar dados do Cartola:', error);
-        // Fallback: usar dados do CSV local se a API falhar
-        await loadLocalCartolaData();
-    }
-}
-
-// Função para carregar dados locais como fallback
-async function loadLocalCartolaData() {
-    try {
-        const response = await fetch('cartola_jogadores_time_posicao_preco.csv');
-        const csvText = await response.text();
-        cartolaData = parseLocalCSV(csvText);
-        console.log('Dados locais carregados como fallback');
-    } catch (error) {
-        console.error('Erro ao carregar dados locais:', error);
-    }
-}
-
-// Função para processar CSV local
-function parseLocalCSV(csvText) {
-    const lines = csvText.split('\n');
-    const headers = lines[0].split(',');
-    const players = {};
-    
-    for (let i = 1; i < lines.length; i++) {
-        const values = lines[i].split(',');
-        if (values.length >= 4) {
-            const playerName = values[0].trim();
-            const team = values[1].trim();
-            const position = values[2].trim();
-            const price = parseFloat(values[3].trim());
-            
-            players[playerName.toUpperCase()] = {
-                nome: playerName,
-                clube: team,
-                posicao: position,
-                preco: price
-            };
-        }
-    }
-    
-    return { atletas: players };
-}
-
-// Função para obter novo Access Token usando Refresh Token
-async function getNewAccessToken() {
-    const refreshToken = localStorage.getItem('gatoMestreRefreshToken');
-    
-    if (!refreshToken || refreshToken.trim() === '') {
-        console.log('Refresh Token não configurado.');
-        return null;
-    }
-    
-    try {
-        console.log('Obtendo novo Access Token...');
-        const response = await fetch('/.netlify/functions/refresh-token-api', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                refresh_token: refreshToken
-            })
-        });
-        
-        if (!response.ok) {
-            console.error('Erro ao obter novo Access Token:', response.status);
-            if (response.status === 401 || response.status === 403) {
-                alert('Refresh Token inválido ou expirado. Por favor, configure novamente.');
-            }
-            return null;
-        }
-        
-        const data = await response.json();
-        console.log('Novo Access Token obtido com sucesso');
-        
-        // Salvar o novo Refresh Token automaticamente
-        if (data.refresh_token) {
-            localStorage.setItem('gatoMestreRefreshToken', data.refresh_token);
-            console.log('Novo Refresh Token salvo automaticamente');
-        }
-        
-        return data.access_token;
-        
-    } catch (error) {
-        console.error('Erro ao obter Access Token:', error);
-        return null;
     }
 }
 
 // Função para carregar dados da API do Gato Mestre
 async function loadGatoMestreData() {
-    // Obter novo Access Token usando Refresh Token
-    const accessToken = await getNewAccessToken();
+    const accessToken = localStorage.getItem('gatoMestreToken');
     
     if (!accessToken || accessToken.trim() === '') {
-        console.log('Não foi possível obter Access Token. Verifique o Refresh Token.');
+        console.log('⚠️ Access Token não configurado.');
         return;
     }
     
     try {
-        console.log('Carregando dados do Gato Mestre...');
-        const response = await fetch(GATOMESTRE_API_URL, {
+        console.log('🔄 Carregando dados do Gato Mestre...');
+        // Usando o proxy do AllOrigins para evitar erro de CORS no navegador
+        const targetUrl = encodeURIComponent(GATOMESTRE_API_URL);
+        const proxyUrl = `https://api.allorigins.win/get?url=${targetUrl}`;
+        
+        const response = await fetch(proxyUrl, {
             method: 'GET',
             headers: {
-                'Authorization': accessToken,
-                'Accept': 'application/json'
+                'Authorization': `Bearer ${accessToken}`
             }
         });
         
         if (!response.ok) {
-            if (response.status === 401 || response.status === 403) {
-                console.error('Token do Gato Mestre inválido ou expirado. Por favor, atualize o token.');
-                alert('Token do Gato Mestre expirado. Por favor, atualize o token nas configurações.');
-                return;
-            }
-            throw new Error(`Erro na API do Gato Mestre: ${response.status}`);
+            throw new Error(`Erro no Proxy: ${response.status}`);
         }
         
-        gatoMestreData = await response.json();
-        console.log('Dados do Gato Mestre carregados:', Object.keys(gatoMestreData).length, 'jogadores');
+        const proxyData = await response.json();
+        gatoMestreData = JSON.parse(proxyData.contents);
+        console.log('✅ Dados do Gato Mestre carregados:', Object.keys(gatoMestreData).length, 'jogadores');
         
     } catch (error) {
-        console.error('Erro ao carregar dados do Gato Mestre:', error);
-        gatoMestreData = null;
+        console.error('❌ Erro ao carregar dados do Gato Mestre:', error);
+        // Tentar sem proxy como fallback (pode dar CORS)
+        try {
+            const response = await fetch(GATOMESTRE_API_URL, {
+                headers: { 'Authorization': `Bearer ${accessToken}` }
+            });
+            if (response.ok) {
+                gatoMestreData = await response.json();
+            }
+        } catch (e) {}
     }
 }
 
-// Função para configurar o Refresh Token do Gato Mestre
+// Função para configurar o Access Token do Gato Mestre
 function setGatoMestreToken(token) {
-    // Salvar como Refresh Token
-    localStorage.setItem('gatoMestreRefreshToken', token);
-    console.log('Refresh Token do Gato Mestre salvo com sucesso');
-    alert('Refresh Token salvo! Agora você não precisa mais copiar token manualmente. Apenas clique em "Atualizar Mercado"!');
-    // Recarregar dados do Gato Mestre com o novo token
+    localStorage.setItem('gatoMestreToken', token);
+    gatoMestreToken = token;
     loadGatoMestreData();
 }
 
 // Função para obter MPV de um jogador
 function getPlayerMPV(atletaId) {
-    if (!gatoMestreData || !atletaId) {
-        return null;
-    }
-    
+    if (!gatoMestreData || !atletaId) return null;
     const playerData = gatoMestreData[atletaId];
-    if (playerData && playerData.minimo_para_valorizar !== undefined) {
-        return playerData.minimo_para_valorizar;
-    }
-    
-    return null;
+    return (playerData && playerData.minimo_para_valorizar !== undefined) ? playerData.minimo_para_valorizar : null;
 }
 
-// Função para determinar a cor do MPV baseada na posição e valor
+// Função para determinar a cor do MPV
 function getMPVColorClass(posicao, mpv) {
     const pos = posicao.toUpperCase();
-    
-    // Técnicos, Goleiros e Zagueiros
     if (pos === 'TEC' || pos === 'GOL' || pos === 'ZAG') {
         if (mpv <= 2.5) return 'mpv-green';
         if (mpv <= 6.0) return 'mpv-white';
         return 'mpv-red';
     }
-    
-    // Laterais
     if (pos === 'LAT') {
         if (mpv <= 3.0) return 'mpv-green';
         if (mpv <= 6.5) return 'mpv-white';
         return 'mpv-red';
     }
-    
-    // Meias e Atacantes
     if (pos === 'MEI' || pos === 'ATA') {
         if (mpv <= 3.0) return 'mpv-green';
         if (mpv <= 7.0) return 'mpv-white';
         return 'mpv-red';
     }
-    
-    // Padrão (branco) se não se encaixar em nenhuma regra
     return 'mpv-white';
 }
 
@@ -367,51 +266,19 @@ function getMPVColorClass(posicao, mpv) {
 function handleFileUpload(event) {
     const file = event.target.files[0];
     if (!file) return;
-    
     const reader = new FileReader();
     reader.onload = function(e) {
-        const content = e.target.result;
-        parsePlayerData(content);
+        parsePlayerData(e.target.result);
     };
     reader.readAsText(file);
 }
 
-// Função para processar dados dos jogadores
-async function loadExampleData() {
-    // Não carregar nenhum arquivo automaticamente
-    // Aguardar upload manual do usuário
-    console.log('Aguardando upload manual de arquivo CSV...');
-    
-    // Limpar dados existentes
-    playerData = [];
-    
-    // Limpar a arte
-    const positions = ['tecnicos', 'goleiros', 'laterais', 'zagueiros', 'meias', 'atacantes'];
-    positions.forEach(position => {
-        const container = document.querySelector(`#${position} .players-list`);
-        if (container) {
-            container.innerHTML = '';
-        }
-    });
-}
-
 function parsePlayerData(content) {
-    console.log('=== INICIANDO PARSE DOS DADOS ===');
-    console.log('Conteúdo recebido:', content.substring(0, 200) + '...');
-    console.log('Total de linhas no arquivo:', content.trim().split('\n').length);
-    
     const lines = content.split('\n');
     playerData = [];
-    
-    console.log('=== PROCESSANDO DADOS DO ARQUIVO ===');
-    console.log('Total de linhas no arquivo:', lines.length);
-    console.log('Primeira linha (cabeçalho):', lines[0]);
-    
-    // Formato: pos,nome,clube,conf,cap,uni,rl (onde cap,uni,rl podem ser CAP,UNI,RL)
     for (let i = 1; i < lines.length; i++) {
         const line = lines[i].trim();
         if (!line) continue;
-        
         const parts = line.split(',');
         if (parts.length >= 4) {
             const player = {
@@ -419,730 +286,131 @@ function parsePlayerData(content) {
                 nome: parts[1].trim(),
                 clube: parts[2].trim(),
                 confianca: parts[3].trim(),
-                capitao: false,
-                unanimidade: false,
-                luxo: false,
-    
-                preco: null
+                capitao: false, unanimidade: false, luxo: false, preco: null
             };
-            
-            // Verificar indicadores nas colunas restantes
-            // Formato: pos,nome,clube,conf,cap,uni,rl,fora20
             for (let j = 4; j < parts.length; j++) {
                 const indicator = normalizeString(parts[j].trim());
-                
-                // Detectar capitão
-                if (indicator === 'cap' || indicator === 'capitao' || indicator === 'captain') {
-                    player.capitao = true;
-                }
-                
-                // Detectar unanimidade
-                if (indicator === 'uni' || indicator === 'unanimidade' || indicator === 'unanime') {
-                    player.unanimidade = true;
-                }
-                
-                // Detectar reserva de luxo
-                if (indicator === 'rl' || indicator === 'reserva luxo' || indicator === 'luxo' || indicator === 'reserva de luxo') {
-                    player.luxo = true;
-                }
-                
-
+                if (indicator === 'cap' || indicator === 'capitao') player.capitao = true;
+                if (indicator === 'uni' || indicator === 'unanimidade') player.unanimidade = true;
+                if (indicator === 'rl' || indicator === 'luxo') player.luxo = true;
             }
-            
-            // Log específico para técnicos e Lyanco
-            if (player.posicao.toUpperCase() === 'TEC') {
-                console.log('=== TÉCNICO PROCESSADO ===');
-                console.log('Nome:', player.nome);
-                console.log('Clube:', player.clube);
-                console.log('Confiança:', player.confianca);
-            }
-            
-            if (player.nome.toLowerCase().includes('lyanco')) {
-                console.log('=== LYANCO PROCESSADO ===');
-                console.log('Posição:', player.posicao);
-                console.log('Nome:', player.nome);
-                console.log('Clube:', player.clube);
-                console.log('Confiança:', player.confianca);
-            }
-            
-            // Buscar preço na API do Cartola
-            player.preco = getPlayerPrice(player.nome, player.clube);
             playerData.push(player);
         }
     }
-    
-    // Log final do processamento
-    const jogadoresPorPosicao = {};
-    playerData.forEach(player => {
-        const pos = player.posicao.toUpperCase();
-        jogadoresPorPosicao[pos] = (jogadoresPorPosicao[pos] || 0) + 1;
-    });
-    
-    console.log('=== RESUMO DO PROCESSAMENTO ===');
-    console.log('Total de jogadores processados:', playerData.length);
-    console.log('Jogadores por posição:', jogadoresPorPosicao);
-    console.log('Dados completos dos jogadores:', playerData);
-    
-    // Arte será gerada manualmente pelo usuário
-    
-    generateBtn.disabled = false;
+    updatePlayerPrices();
+    renderArt();
 }
 
-// Função para normalizar nomes (remover acentos, espaços extras)
 function normalizeString(str) {
-    if (!str) return '';
-    return str.normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '') // Remove acentos
-        .replace(/[íì]/g, 'i') // Substitui caracteres especiais específicos
-        .replace(/[áàâã]/g, 'a')
-        .replace(/[óòôõ]/g, 'o')
-        .replace(/[úùû]/g, 'u')
-        .replace(/[éèê]/g, 'e')
-        .replace(/[ç]/g, 'c')
-        .toLowerCase()
-        .trim()
-        .replace(/\s+/g, ' ') // Normaliza espaços múltiplos
-        .replace(/[^a-z0-9\s]/g, '') // Remove caracteres especiais
-        .replace(/\b(de|da|do|dos|das)\b/g, '') // Remove preposições comuns
-        .replace(/\s+/g, ' ') // Remove espaços extras após remoção de preposições
-        .trim();
+    return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
 }
 
-// Função para normalizar nome de clube para busca de escudo
-function normalizeClubName(clubName) {
-    const clubMap = {
-        'flamengo': ['flamengo', 'fla', 'flam'],
-        'palmeiras': ['palmeiras', 'pal', 'palm'],
-        'corinthians': ['corinthians', 'cor', 'corintians'],
-        'são paulo': ['são paulo', 'sao paulo', 'sao', 'spfc'],
-        'santos': ['santos', 'san'],
-        'vasco': ['vasco', 'vas'],
-        'botafogo': ['botafogo', 'bot', 'bota'],
-        'fluminense': ['fluminense', 'flu', 'flumi'],
-        'atlético mg': ['atlético-mg', 'atletico-mg', 'atletico mg', 'atl', 'cam', 'galo'],
-        'cruzeiro': ['cruzeiro', 'cru', 'cruz'],
-        'gremio': ['grêmio', 'gremio', 'gre', 'tricolor'],
-        'internacional': ['internacional', 'inter', 'int', 'colorado'],
-        'bahia': ['bahia', 'bah', 'tricolor baiano'],
-        'sport': ['sport', 'spo', 'recife'],
-        'ceará': ['ceará', 'ceara', 'cea', 'vozao'],
-        'fortaleza': ['fortaleza', 'for', 'leao'],
-        'vitória': ['vitória', 'vitoria', 'vit', 'leao da barra'],
-        'juventude': ['juventude', 'juv', 'papo'],
-        'red bull bragantino': ['red bull bragantino', 'bragantino', 'rbr', 'red bull'],
-        'mirassol': ['mirassol', 'mir'],
-        'athletico-pr': ['athletico-pr', 'athletico pr', 'athletico', 'cap', 'furacao'],
-        'coritiba': ['coritiba', 'coxa', 'cfc'],
-        'chapecoense': ['chapecoense', 'chape', 'verdao'],
-        'remo': ['remo', 'leao azul']
-    };
-    
-    const normalized = normalizeString(clubName.toLowerCase());
-    
-    // Log para debug de clubes
-    console.log(`[normalizeClubName] Clube original: "${clubName}" | Normalizado: "${normalized}"`);
-    
-    for (const [key, variations] of Object.entries(clubMap)) {
-        if (variations.some(variation => normalized === normalizeString(variation.toLowerCase()))) {
-            console.log(`[normalizeClubName] Match encontrado: "${clubName}" → "${key}"`);
-            return key;
+function updatePlayerPrices() {
+    if (!cartolaData || !cartolaData.atletas) return;
+    const errors = [];
+    playerData.forEach(player => {
+        const normalizedPlayerName = normalizeString(player.nome);
+        const normalizedClubName = normalizeString(player.clube);
+        let found = false;
+        for (const [atletaId, atleta] of Object.entries(cartolaData.atletas)) {
+            const atletaNome = normalizeString(atleta.apelido || atleta.nome || '');
+            const atletaClube = normalizeString(atleta.clube?.nome || '');
+            if (atletaNome === normalizedPlayerName && atletaClube === normalizedClubName) {
+                player.preco = atleta.preco_num;
+                player.atletaId = atletaId;
+                found = true;
+                break;
+            }
         }
-    }
-    
-    console.log(`[normalizeClubName] Nenhum match encontrado para "${clubName}", retornando normalizado: "${normalized}"`);
-    return normalized.replace(/\s+/g, ' ');
-}
-
-// Função para buscar preço do jogador
-function getPlayerPrice(playerName, clubName) {
-    if (!cartolaData || !cartolaData.atletas) {
-        console.log('Dados do Cartola não disponíveis para:', playerName);
-        return { price: null, found: false };
-    }
-    
-    // Log específico para técnicos
-    if (playerName.toLowerCase().includes('filipe') || playerName.toLowerCase().includes('vojvoda') || playerName.toLowerCase().includes('leo conde')) {
-        console.log('=== BUSCANDO TÉCNICO ===');
-        console.log('Nome do técnico:', playerName);
-        console.log('Total de atletas na API:', Object.keys(cartolaData.atletas).length);
-        
-        // Listar todos os técnicos disponíveis
-        const tecnicos = Object.values(cartolaData.atletas).filter(atleta => atleta.posicao_id === 6);
-        console.log('Técnicos disponíveis na API:', tecnicos.map(t => t.apelido || t.nome));
-    }
-    
-    // Log específico para Lyanco
-    if (playerName.toLowerCase().includes('lyanco')) {
-        console.log('=== BUSCANDO LYANCO ===');
-        console.log('Nome do jogador:', playerName);
-        console.log('Clube:', clubName);
-        
-        // Listar todos os zagueiros do Atlético MG
-        const zagueirosMG = Object.values(cartolaData.atletas).filter(atleta => 
-            atleta.posicao_id === 3 && 
-            (atleta.clube_id === 282 || (atleta.clube && atleta.clube.nome && atleta.clube.nome.toLowerCase().includes('atlético')))
-        );
-        console.log('Zagueiros do Atlético MG na API:', zagueirosMG.map(z => `${z.apelido || z.nome} (ID: ${z.atleta_id})`));
-    }
-    
-    const normalizedPlayerName = normalizeString(playerName);
-    const normalizedClubName = normalizeString(clubName);
-    
-    console.log(`Buscando preço para: ${playerName} (${normalizedPlayerName}) do ${clubName}`);
-    
-    // Busca exata primeiro
-    const exactMatch = Object.values(cartolaData.atletas).find(atleta => {
-        const atletaNome = normalizeString(atleta.apelido || atleta.nome);
-        const atletaNomeOriginal = atleta.apelido || atleta.nome;
-        const match = atletaNome === normalizedPlayerName;
-        
-        // Log específico para técnicos (posicao_id 6)
-        if (atleta.posicao_id === 6) {
-            console.log(`Técnico encontrado na API: ${atletaNomeOriginal} (normalizado: ${atletaNome}) - Comparando com: ${normalizedPlayerName}`);
-        }
-        
-        if (match) {
-            console.log(`Match exato encontrado: ${atletaNomeOriginal} - Preço: ${atleta.preco_num}`);
-        }
-        return match;
+        if (!found) errors.push(`${player.nome} (${player.clube})`);
     });
-    
-    if (exactMatch) {
-        return { price: exactMatch.preco_num || exactMatch.preco, found: true, player: exactMatch };
-    }
-    
-    // Busca por apelido similar
-    const similarMatch = Object.values(cartolaData.atletas).find(atleta => {
-        const atletaNome = normalizeString(atleta.apelido || atleta.nome);
-        const match = atletaNome.includes(normalizedPlayerName) || normalizedPlayerName.includes(atletaNome);
-        if (match) {
-            console.log(`Match similar encontrado: ${atleta.apelido || atleta.nome} - Preço: ${atleta.preco_num}`);
-        }
-        return match;
-    });
-    
-    if (similarMatch) {
-        return { price: similarMatch.preco_num || similarMatch.preco, found: true, player: similarMatch, clubMismatch: true };
-    }
-    
-    // Busca específica para casos problemáticos
-    const specialCases = {
-        'filipe luis': 'filipe luis',
-        'lyanco': 'lyanco',
-        'vojvoda': 'vojvoda'
-    };
-    
-    if (specialCases[normalizedPlayerName]) {
-        const specialMatch = Object.values(cartolaData.atletas).find(atleta => {
-            const atletaNome = normalizeString(atleta.apelido || atleta.nome);
-            return atletaNome.includes(specialCases[normalizedPlayerName]);
-        });
-        
-        if (specialMatch) {
-            console.log(`Match especial encontrado: ${specialMatch.apelido || specialMatch.nome} - Preço: ${specialMatch.preco_num}`);
-            return { price: specialMatch.preco_num || specialMatch.preco, found: true, player: specialMatch };
-        }
-    }
-    
-    console.log(`Jogador não encontrado: ${playerName}`);
-    return { price: null, found: false };
+    showErrorMessages(errors);
 }
 
-// Função para gerar a arte
-function generateArt() {
-    console.log('=== FUNÇÃO GENERATEART EXECUTADA ===');
-    console.log('Dados dos jogadores:', playerData);
-    
-    if (!playerData.length) {
-        console.log('ERRO: Nenhum dado de jogador encontrado!');
-        alert('Por favor, faça upload do arquivo CSV primeiro.');
-        return;
-    }
-    
-    console.log('Iniciando geração da arte com', playerData.length, 'jogadores');
-    
-    // Inicializar DOM se necessário
-    if (!artLayout) {
-        initializeDOM();
-    }
-    
-    // Atualizar título com número da rodada
-    updateArtTitle();
-    
-    // Limpar listas existentes
-    Object.values(POSITION_MAP).forEach(positionId => {
-        const container = document.getElementById(positionId);
+function renderArt() {
+    const positions = ['tecnicos', 'goleiros', 'laterais', 'zagueiros', 'meias', 'atacantes'];
+    positions.forEach(pos => {
+        const container = document.querySelector(`#${pos} .players-list`);
         if (container) container.innerHTML = '';
     });
-    
-    console.log('=== GERANDO ARTE ===');
-    
-    // Agrupar jogadores por posição e detectar erros
-    const playersByPosition = {};
-    const notFoundPlayers = [];
-    
     playerData.forEach(player => {
-        console.log(`Processando jogador: ${player.nome} - Posição: ${player.posicao}`);
-        const positionKey = POSITION_MAP[player.posicao];
-        console.log(`Posição mapeada: ${positionKey}`);
-        
-        if (positionKey) {
-            // Verificar se jogador foi encontrado no mercado
-            const priceData = getPlayerPrice(player.nome, player.clube);
-            if (!priceData.found) {
-                notFoundPlayers.push(`${player.nome} (${player.clube})`);
-            }
-            
-            if (!playersByPosition[positionKey]) {
-                playersByPosition[positionKey] = [];
-            }
-            playersByPosition[positionKey].push(player);
-            console.log(`Jogador ${player.nome} adicionado à posição ${positionKey}`);
-        } else {
-            console.log(`ERRO: Posição ${player.posicao} não encontrada no POSITION_MAP`);
-        }
+        const pos = player.posicao.toUpperCase();
+        const containerName = POSITION_MAP[pos];
+        const container = document.querySelector(`#${containerName} .players-list`);
+        if (container) container.appendChild(createPlayerCard(player));
     });
-    
-    // Mostrar mensagens de erro se houver jogadores não encontrados
-    showErrorMessages(notFoundPlayers);
-    
-    // Renderizar jogadores em cada posição
-    console.log('Jogadores agrupados por posição:', playersByPosition);
-    Object.entries(playersByPosition).forEach(([positionId, players]) => {
-        console.log(`Renderizando posição: ${positionId} com ${players.length} jogadores`);
-        const container = document.getElementById(positionId);
-        if (container) {
-            // Log específico para técnicos antes da ordenação
-            if (positionId === 'tecnicos') {
-                console.log('=== TÉCNICOS ANTES DA ORDENAÇÃO ===');
-                players.forEach(player => {
-                    console.log(`${player.nome} - Confiança: ${player.confianca} - Unanimidade: ${player.unanimidade}`);
-                });
-            }
-            
-            // Ordenar jogadores: primeiro unanimidade, depois por confiança (A, B, C)
-            const sortedPlayers = players.sort((a, b) => {
-                // Primeiro critério: unanimidade (unânimes primeiro)
-                if (a.unanimidade && !b.unanimidade) return -1;
-                if (!a.unanimidade && b.unanimidade) return 1;
-                
-                // Segundo critério: confiança (A, B, C)
-                if (a.confianca !== b.confianca) {
-                    return a.confianca.localeCompare(b.confianca);
-                }
-                
-                // Terceiro critério: nome (ordem alfabética)
-                return a.nome.localeCompare(b.nome);
-            });
-            
-            // Log específico para técnicos depois da ordenação
-            if (positionId === 'tecnicos') {
-                console.log('=== TÉCNICOS DEPOIS DA ORDENAÇÃO ===');
-                sortedPlayers.forEach(player => {
-                    console.log(`${player.nome} - Confiança: ${player.confianca} - Unanimidade: ${player.unanimidade}`);
-                });
-            }
-            
-            sortedPlayers.forEach(player => {
-                console.log(`Criando elemento para: ${player.nome}`);
-                const playerElement = createPlayerElement(player);
-                container.appendChild(playerElement);
-            });
-        }
-    });
-    
-    // Aplicar layout dinâmico baseado na quantidade de jogadores
-    applyDynamicLayout(playersByPosition);
-    
-    // Mostrar botões de download
-    const exportButtons = document.querySelector('.export-buttons');
-    if (exportButtons) {
-        exportButtons.style.display = 'flex';
-    }
 }
 
-// Função para aplicar layout dinâmico baseado na quantidade de jogadores
-function applyDynamicLayout(playersByPosition) {
-    // Contar jogadores por linha do grid
-    const row1Count = (playersByPosition.tecnicos?.length || 0) + (playersByPosition.goleiros?.length || 0);
-    const row2Count = (playersByPosition.laterais?.length || 0) + (playersByPosition.zagueiros?.length || 0);
-    const row3Count = (playersByPosition.meias?.length || 0) + (playersByPosition.atacantes?.length || 0);
+function createPlayerCard(player) {
+    const card = document.createElement('div');
+    card.className = `player-card confidence-${player.confianca.toLowerCase()}`;
+    if (player.capitao) card.classList.add('capitao');
+    if (player.unanimidade) card.classList.add('unanimidade');
+    if (player.luxo) card.classList.add('luxo');
     
-    // Calcular proporções baseadas na quantidade de jogadores
-    // Pesos ajustados para dar mais espaço aos meias e atacantes
-    const baseWeight1 = 0.2; // Técnicos/Goleiros - peso menor
-    const baseWeight2 = 0.25;  // Laterais/Zagueiros - peso médio
-    const baseWeight3 = 0.55;  // Meias/Atacantes - peso maior para evitar corte
-    const playerWeight = 0.1; // Peso adicional aumentado por jogador
+    const nameDiv = document.createElement('div');
+    nameDiv.className = 'player-name';
+    nameDiv.textContent = player.nome;
+    card.appendChild(nameDiv);
     
-    const row1Weight = Math.max(baseWeight1, baseWeight1 + (row1Count * playerWeight));
-    const row2Weight = Math.max(baseWeight2, baseWeight2 + (row2Count * playerWeight));
-    const row3Weight = Math.max(baseWeight3, baseWeight3 + (row3Count * playerWeight * 1.5)); // Peso extra para linha 3
+    const clubeNormalizado = normalizeString(player.clube);
+    const clubeMapeado = CLUB_MAP[player.clube.toUpperCase()] || clubeNormalizado;
+    const badgeDiv = document.createElement('div');
+    badgeDiv.className = 'club-badge';
+    const badgeImg = document.createElement('img');
+    badgeImg.src = `escudos/${clubeMapeado}.png`;
+    badgeImg.onerror = function() { this.style.display = 'none'; };
+    badgeDiv.appendChild(badgeImg);
+    card.appendChild(badgeDiv);
     
-    // Normalizar os pesos para que a soma seja proporcional
-    const totalWeight = row1Weight + row2Weight + row3Weight;
-    const normalizedRow1 = (row1Weight / totalWeight * 3).toFixed(2);
-    const normalizedRow2 = (row2Weight / totalWeight * 3).toFixed(2);
-    const normalizedRow3 = (row3Weight / totalWeight * 3).toFixed(2);
+    const infoDiv = document.createElement('div');
+    infoDiv.className = 'player-info';
+    const priceDiv = document.createElement('div');
+    priceDiv.className = 'player-price';
+    priceDiv.textContent = player.preco !== null ? `C$ ${player.preco.toFixed(2)}` : 'C$ -.--';
+    infoDiv.appendChild(priceDiv);
     
-    // Aplicar as novas proporções ao grid
-    const positionsGrid = document.querySelector('.positions-grid');
-    if (positionsGrid) {
-        const newGridRows = `${normalizedRow1}fr ${normalizedRow2}fr ${normalizedRow3}fr`;
-        positionsGrid.style.gridTemplateRows = newGridRows;
-        
-        console.log(`Layout dinâmico aplicado:`);
-        console.log(`Linha 1 (Técnicos/Goleiros): ${row1Count} jogadores - ${normalizedRow1}fr`);
-        console.log(`Linha 2 (Laterais/Zagueiros): ${row2Count} jogadores - ${normalizedRow2}fr`);
-        console.log(`Linha 3 (Meias/Atacantes): ${row3Count} jogadores - ${normalizedRow3}fr`);
-        console.log(`Grid template rows: ${newGridRows}`);
-    }
-}
-
-// Função para criar elemento do jogador
-function createPlayerElement(player) {
-    const playerRow = document.createElement('div');
-    playerRow.className = 'player-row';
-    
-    const priceData = getPlayerPrice(player.nome, player.clube);
-    
-    // Adicionar classe de erro se jogador não foi encontrado
-    if (!priceData.found) {
-        playerRow.classList.add('player-not-found');
-    }
-    
-    const playerInfo = document.createElement('div');
-    playerInfo.className = 'player-info';
-    
-    // Nome do jogador
-    const playerName = document.createElement('span');
-    playerName.className = 'player-name';
-    playerName.textContent = player.nome.toUpperCase();
-    
-    // Escudo do time com div de fundo branco
-    const teamBadgeWrapper = document.createElement('div');
-    teamBadgeWrapper.className = 'team-badge-wrapper';
-    
-    // Criar SVG com círculo branco (sempre renderizado pelo html2canvas)
-    const svgNS = 'http://www.w3.org/2000/svg';
-    const svg = document.createElementNS(svgNS, 'svg');
-    svg.setAttribute('width', '85');
-    svg.setAttribute('height', '85');
-    svg.setAttribute('viewBox', '0 0 85 85');
-    svg.style.position = 'absolute';
-    svg.style.top = '0';
-    svg.style.left = '0';
-    svg.style.zIndex = '0';
-    
-    const circle = document.createElementNS(svgNS, 'circle');
-    circle.setAttribute('cx', '42.5');
-    circle.setAttribute('cy', '42.5');
-    circle.setAttribute('r', '42.5');
-    circle.setAttribute('fill', '#ffffff');
-    
-    svg.appendChild(circle);
-    teamBadgeWrapper.appendChild(svg);
-    
-    const teamBadge = document.createElement('img');
-    teamBadge.className = 'team-badge-img';
-    const clubFileName = normalizeClubName(player.clube);
-    
-    // Log específico para Lyanco
-    if (player.nome.toLowerCase().includes('lyanco')) {
-        console.log('=== DEBUG LYANCO ESCUDO ===');
-        console.log('Clube original:', player.clube);
-        console.log('Clube normalizado:', clubFileName);
-        console.log('URL do escudo:', `public/escudos/${clubFileName}.png`);
-    }
-    
-    teamBadge.src = `/public/escudos/${clubFileName}.png`;
-    teamBadge.alt = player.clube;
-    teamBadge.onerror = function() {
-        console.log('Erro ao carregar escudo:', this.src);
-        this.style.display = 'none';
-    };
-    
-    teamBadgeWrapper.appendChild(teamBadge);
-    
-    // Criar container de ícones
-    const playerIcons = document.createElement('div');
-    playerIcons.className = 'player-icons';
-    
-    console.log(`=== JOGADOR ${player.nome} ===`);
-    console.log(`Luxo: ${player.luxo}, Unanimidade: ${player.unanimidade}, Capitão: ${player.capitao}`);
-    console.log(`Container playerIcons criado:`, playerIcons);
-    
-    if (player.luxo) {
-        const luxoIcon = document.createElement('img');
-        luxoIcon.src = 'public/icons/luxo.svg';
-        luxoIcon.className = 'icon';
-        luxoIcon.alt = 'RL';
-        luxoIcon.onerror = function() { console.error('Erro ao carregar ícone de luxo'); };
-        luxoIcon.onload = function() { console.log('Ícone de luxo carregado com sucesso'); };
-        playerIcons.appendChild(luxoIcon);
-        console.log('Ícone de luxo adicionado');
-    }
-    
-    if (player.unanimidade) {
-        const uniIcon = document.createElement('img');
-        uniIcon.src = 'public/icons/estrela.svg';
-        uniIcon.className = 'icon';
-        uniIcon.alt = 'Unanimidade';
-        uniIcon.onerror = function() { console.error('Erro ao carregar ícone de unanimidade'); };
-        uniIcon.onload = function() { console.log('Ícone de unanimidade carregado com sucesso'); };
-        playerIcons.appendChild(uniIcon);
-        console.log('Ícone de unanimidade adicionado');
-    }
-    
-    if (player.capitao) {
-        const capIcon = document.createElement('img');
-        capIcon.src = 'public/icons/capitao.svg';
-        capIcon.className = 'icon';
-        capIcon.alt = 'Capitão';
-        capIcon.onerror = function() { console.error('Erro ao carregar ícone de capitão'); };
-        capIcon.onload = function() { console.log('Ícone de capitão carregado com sucesso'); };
-        playerIcons.appendChild(capIcon);
-        console.log('Ícone de capitão adicionado');
-    }
-    
-
-    
-    console.log(`Total de ícones no container: ${playerIcons.children.length}`);
-    console.log(`PlayerIcons HTML:`, playerIcons.outerHTML);
-    console.log(`PlayerIcons será inserido em playerInfo:`, playerInfo);
-    
-    // Nível de confiança
-    const confidenceLevel = document.createElement('div');
-    confidenceLevel.className = `confidence-level confidence-${player.confianca}`;
-    confidenceLevel.textContent = player.confianca;
-    
-    // Preço
-    const playerPrice = document.createElement('span');
-    playerPrice.className = 'player-price';
-    if (!priceData.found) {
-        playerPrice.classList.add('price-error');
-        playerPrice.textContent = 'N/E';
-    } else {
-        const price = priceData.price || 0;
-        playerPrice.textContent = price.toFixed(1);
-    }
-    
-    // Mínimo Para Valorizar (MPV)
-    const playerMPV = document.createElement('span');
-    playerMPV.className = 'player-mpv';
-    if (priceData.found && priceData.player && priceData.player.atleta_id) {
-        const mpv = getPlayerMPV(priceData.player.atleta_id);
+    if (player.atletaId) {
+        const mpv = getPlayerMPV(player.atletaId);
         if (mpv !== null) {
-            playerMPV.textContent = mpv.toFixed(1);
-            // Aplicar cor baseada na posição e valor do MPV
-            const colorClass = getMPVColorClass(player.posicao, mpv);
-            if (colorClass) {
-                playerMPV.classList.add(colorClass);
-            }
-        } else {
-            playerMPV.textContent = '-';
+            const mpvDiv = document.createElement('div');
+            mpvDiv.className = `player-mpv ${getMPVColorClass(player.posicao, mpv)}`;
+            mpvDiv.textContent = mpv.toFixed(1);
+            infoDiv.appendChild(mpvDiv);
         }
-    } else {
-        playerMPV.textContent = '-';
     }
-    
-    // Criar container para os dados (C, C$, MPV)
-    const playerData = document.createElement('div');
-    playerData.className = 'player-data';
-    playerData.appendChild(confidenceLevel);
-    playerData.appendChild(playerPrice);
-    playerData.appendChild(playerMPV);
-    
-    // Montar estrutura
-    playerInfo.appendChild(teamBadgeWrapper);
-    playerInfo.appendChild(playerName);
-    playerInfo.appendChild(playerIcons);
-    
-    playerRow.appendChild(playerInfo);
-    playerRow.appendChild(playerData);
-    
-    return playerRow;
+    card.appendChild(infoDiv);
+    return card;
 }
 
-// Função para gerar imagem no canvas
-function generateCanvasImage() {
-    return new Promise((resolve) => {
-        // Configurar canvas
-        ctx.fillStyle = '#1e3c72';
-        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-        
-        // Usar html2canvas para capturar o layout
-        html2canvas(artLayout, {
-            width: CANVAS_WIDTH,
-            height: CANVAS_HEIGHT,
-            scale: 1,
-            useCORS: true,
-            allowTaint: true
-        }).then(canvas => {
-            // Desenhar no canvas principal
-            ctx.drawImage(canvas, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-            resolve();
+function generateArt() {
+    if (!canvas || !ctx) initializeDOM();
+    canvas.width = CANVAS_WIDTH;
+    canvas.height = CANVAS_HEIGHT;
+    html2canvas(artLayout, { scale: 2, backgroundColor: '#1a1a1a', width: CANVAS_WIDTH, height: CANVAS_HEIGHT }).then(canvasResult => {
+        ctx.drawImage(canvasResult, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+        document.getElementById('downloadPngBtn').disabled = false;
+        document.getElementById('downloadPdfBtn').disabled = false;
+        alert('Arte gerada com sucesso!');
+    });
+}
+
+function downloadImage(format) {
+    const roundNumber = document.getElementById('roundNumber').value || 'X';
+    const filename = `dicas-md3-rodada-${roundNumber}`;
+    if (format === 'png') {
+        canvas.toBlob(blob => {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = `${filename}.png`; a.click();
+            URL.revokeObjectURL(url);
         });
-    });
-}
-
-// Função para baixar a imagem
-function downloadImage(format = 'png') {
-    const exportSize = document.getElementById('exportSize').value;
-    const [width, height] = exportSize.split('x').map(Number);
-    
-    // Ajustar temporariamente o tamanho do layout
-    const originalWidth = artLayout.style.width;
-    const originalHeight = artLayout.style.height;
-    const originalTransform = artLayout.style.transform;
-    const originalTransformOrigin = artLayout.style.transformOrigin;
-    
-    // Calcular altura real do conteúdo
-    artLayout.style.width = width + 'px';
-    artLayout.style.height = 'auto'; // Permitir altura automática
-    artLayout.style.transform = 'scale(1)';
-    artLayout.style.transformOrigin = 'top left';
-    artLayout.style.position = 'relative';
-    artLayout.style.left = '0';
-    artLayout.style.top = '0';
-    
-    // Ajustar tamanhos internos proporcionalmente
-    const scaleFactor = width / 2900;
-    document.documentElement.style.setProperty('--export-scale', scaleFactor);
-    
-    // Forçar recálculo do layout
-    artLayout.offsetHeight;
-    
-    // Calcular altura precisa do conteúdo visível
-    const contentHeight = artLayout.scrollHeight;
-    const minHeight = Math.min(height, contentHeight);
-    
-    // Adicionar margem mínima de segurança (2% da altura original)
-    const safetyMargin = Math.floor(height * 0.02);
-    const optimizedHeight = Math.min(contentHeight + safetyMargin, height);
-    
-    artLayout.style.height = optimizedHeight + 'px';
-    
-    // Adicionar classe específica para a resolução
-    artLayout.classList.remove('export-1450', 'export-2900', 'export-4350');
-    if (width === 1450) {
-        artLayout.classList.add('export-1450');
-    } else if (width === 2900) {
-        artLayout.classList.add('export-2900');
-    } else if (width === 4350) {
-        artLayout.classList.add('export-4350');
-    }    
-    // Calcular scale seguro baseado no tamanho total para evitar canvas muito grande
-    const maxCanvasSize = 16384; // Limite seguro para a maioria dos navegadores
-    const maxPixels = 50000000; // 50 megapixels como limite seguro
-    const totalPixels = width * height;
-    
-    let safeScale = 1;
-    
-    // Se a resolução já é grande, não aplicar scale adicional
-    if (width >= 2900 || totalPixels > maxPixels) {
-        safeScale = 1;
-    } else {
-        // Para resoluções menores, permitir scale maior para melhor qualidade
-        safeScale = Math.min(2, maxCanvasSize / Math.max(width, height));
+    } else if (format === 'pdf') {
+        const imgData = canvas.toDataURL('image/png');
+        const pdf = new jspdf.jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = (CANVAS_HEIGHT * pdfWidth) / CANVAS_WIDTH;
+        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+        pdf.save(`${filename}.pdf`);
     }
-    
-    console.log(`Configuração de exportação: ${width}x${optimizedHeight}, scale: ${safeScale}, pixels totais: ${(width * safeScale * optimizedHeight * safeScale).toLocaleString()}`);
-    
-    // Gerar imagem com html2canvas com configurações otimizadas
-    html2canvas(artLayout, {
-        width: width,
-        height: optimizedHeight,
-        scale: safeScale,
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: '#1a1a1a',
-        logging: false,
-        imageTimeout: 15000,
-        removeContainer: true,
-        foreignObjectRendering: false,
-        scrollX: 0,
-        scrollY: 0,
-        x: 0,
-        y: 0,
-        windowWidth: width,
-        windowHeight: optimizedHeight,
-        onclone: function(clonedDoc) {
-            // Forçar background branco nos wrappers de escudos
-            const wrappers = clonedDoc.querySelectorAll('.team-badge-wrapper');
-            wrappers.forEach(wrapper => {
-                wrapper.style.backgroundColor = '#ffffff';
-                wrapper.style.background = '#ffffff';
-            });
-        }
-    }).then(canvas => {
-        // Restaurar tamanho original
-        artLayout.style.width = originalWidth;
-        artLayout.style.height = originalHeight;
-        artLayout.style.transform = originalTransform;
-        artLayout.style.transformOrigin = originalTransformOrigin;
-        document.documentElement.style.removeProperty('--export-scale');
-        artLayout.classList.remove('export-1450', 'export-2900', 'export-4350');
-        
-        if (format === 'png') {
-            downloadPNG(canvas, exportSize);
-        } else if (format === 'pdf') {
-            downloadPDF(canvas, exportSize);
-        } else if (format === 'pdf-vector') {
-            downloadPDFVector(exportSize);
-        }
-    }).catch(error => {
-        console.error('Erro ao gerar imagem:', error);
-        alert('Erro ao gerar imagem. Tente novamente.');
-        
-        // Restaurar tamanho original em caso de erro
-        artLayout.style.width = originalWidth;
-        artLayout.style.height = originalHeight;
-        artLayout.style.transform = originalTransform;
-        artLayout.style.transformOrigin = originalTransformOrigin;
-        document.documentElement.style.removeProperty('--export-scale');
-    });
-}
-
-// Função para baixar PNG
-function downloadPNG(canvas, size) {
-    const link = document.createElement('a');
-    link.download = `dicas-por-posicao-${size}.png`;
-    link.href = canvas.toDataURL('image/png', 1.0);
-    link.click();
-}
-
-// Função para baixar PDF
-function downloadPDF(canvas, size) {
-    // Criar PDF com jsPDF
-    const { jsPDF } = window.jspdf || {};
-    if (!jsPDF) {
-        alert('Biblioteca jsPDF não carregada. Baixando PNG ao invés.');
-        downloadPNG(canvas, size);
-        return;
-    }
-    
-    const [width, height] = size.split('x').map(Number);
-    const pdf = new jsPDF({
-        orientation: height > width ? 'portrait' : 'landscape',
-        unit: 'px',
-        format: [width, height]
-    });
-    
-    const imgData = canvas.toDataURL('image/png', 1.0);
-    pdf.addImage(imgData, 'PNG', 0, 0, width, height);
-    pdf.save(`dicas-por-posicao-${size}.pdf`);
-}
-
-// Função para baixar PDF vetorial (placeholder)
-function downloadPDFVector(size) {
-    alert('Exportação PDF vetorial requer servidor. Baixando PDF rápido ao invés.');
-    downloadImage('pdf');
-}
-
-// Função auxiliar para carregar html2canvas se não estiver disponível
-if (typeof html2canvas === 'undefined') {
-    const script = document.createElement('script');
-    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
-    document.head.appendChild(script);
 }
