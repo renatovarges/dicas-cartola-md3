@@ -797,7 +797,7 @@ function createPlayerElement(player) {
         console.log('URL do escudo:', `public/escudos/${clubFileName}.png`);
     }
     
-    teamBadge.src = `public/escudos/${clubFileName}.png`;
+    teamBadge.src = `escudos/${clubFileName}.png`;
     teamBadge.alt = player.clube;
     teamBadge.onerror = function() {
         console.log('Erro ao carregar escudo:', this.src);
