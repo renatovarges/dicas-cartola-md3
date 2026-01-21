@@ -1,80 +1,87 @@
-// Netlify Function para buscar dados do Gato Mestre
-// Recebe o Access Token do cliente e faz a requisição no servidor (sem CORS)
+const https = require('https');
 
 exports.handler = async function(event, context) {
-    // Headers CORS
-    const headers = {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-        'Access-Control-Allow-Methods': 'GET, OPTIONS'
+  const headers = { 
+    'Access-Control-Allow-Origin': '*', 
+    'Content-Type': 'application/json' 
+  };
+
+  // Suporte para requisições OPTIONS (CORS preflight)
+  if (event.httpMethod === 'OPTIONS') {
+    return { 
+      statusCode: 200, 
+      headers: {
+        ...headers,
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+      },
+      body: '' 
+    };
+  }
+
+  // Pega o token do header Authorization
+  const authToken = event.headers.authorization || event.headers.Authorization;
+  
+  if (!authToken) {
+    return { 
+      statusCode: 401, 
+      headers, 
+      body: JSON.stringify({ error: 'Token de autorização não fornecido' })
+    };
+  }
+
+  return new Promise((resolve) => {
+    const options = {
+      hostname: 'api.cartola.globo.com',
+      path: '/auth/time/info',
+      method: 'GET',
+      headers: {
+        'Authorization': authToken
+      }
     };
 
-    // Responder a requisições OPTIONS (preflight)
-    if (event.httpMethod === 'OPTIONS') {
-        return { statusCode: 200, headers, body: '' };
-    }
-
-    // Apenas aceitar requisições GET
-    if (event.httpMethod !== 'GET') {
-        return {
-            statusCode: 405,
-            headers,
-            body: JSON.stringify({ error: 'Method not allowed' })
-        };
-    }
-
-    // Obter o token de autorização dos headers
-    const authToken = event.headers.authorization || event.headers.Authorization;
-    
-    if (!authToken) {
-        return {
+    const req = https.request(options, (res) => {
+      let data = '';
+      
+      res.on('data', (chunk) => {
+        data += chunk;
+      });
+      
+      res.on('end', () => {
+        if (res.statusCode === 401) {
+          resolve({
             statusCode: 401,
             headers,
-            body: JSON.stringify({ error: 'Token de autorização não fornecido' })
-        };
-    }
-
-    try {
-        // Fazer requisição para a API do Gato Mestre (endpoint correto)
-        const response = await fetch('https://api.cartola.globo.com/gato-mestre/mercado', {
-            method: 'GET',
-            headers: {
-                'Authorization': authToken,
-                'Accept': 'application/json',
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-            }
-        });
-
-        if (!response.ok) {
-            console.error(`Erro na API: ${response.status}`);
-            return {
-                statusCode: response.status,
-                headers,
-                body: JSON.stringify({ 
-                    error: `Erro na API do Gato Mestre: ${response.status}`,
-                    message: response.status === 401 ? 'Token inválido ou expirado' : 'Erro ao buscar dados'
-                })
-            };
+            body: JSON.stringify({ error: 'Token expirado ou inválido' })
+          });
+          return;
         }
 
-        const data = await response.json();
-
-        return {
+        try {
+          const jsonData = JSON.parse(data);
+          resolve({
             statusCode: 200,
             headers,
-            body: JSON.stringify(data)
-        };
-
-    } catch (error) {
-        console.error('Erro ao buscar dados do Gato Mestre:', error);
-        return {
+            body: JSON.stringify(jsonData)
+          });
+        } catch (error) {
+          resolve({
             statusCode: 500,
             headers,
-            body: JSON.stringify({ 
-                error: 'Erro interno ao buscar dados',
-                details: error.message 
-            })
-        };
-    }
+            body: JSON.stringify({ error: 'Erro ao processar dados do Gato Mestre', details: error.message })
+          });
+        }
+      });
+    });
+
+    req.on('error', (error) => {
+      resolve({
+        statusCode: 500,
+        headers,
+        body: JSON.stringify({ error: 'Erro ao conectar com API Gato Mestre', details: error.message })
+      });
+    });
+
+    req.end();
+  });
 };
