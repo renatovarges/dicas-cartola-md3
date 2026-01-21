@@ -398,7 +398,8 @@ body {
 
 .header-labels {
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-start;
+    gap: 20px;
     font-size: 60px;
     font-weight: bold;
     color: #ffffff;
