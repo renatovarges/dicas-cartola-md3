@@ -1,48 +1,60 @@
+const https = require('https');
+
 exports.handler = async (event, context) => {
-  const headers = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type',
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Content-Type': 'application/json'
+  const headers = { 
+    'Access-Control-Allow-Origin': '*', 
+    'Content-Type': 'application/json' 
   };
 
+  // Suporte para requisições OPTIONS (CORS preflight)
   if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 200, headers, body: '' };
-  }
-
-  if (event.httpMethod !== 'GET') {
-    return {
-      statusCode: 405,
-      headers,
-      body: JSON.stringify({ error: 'Método não permitido' })
+    return { 
+      statusCode: 200, 
+      headers: {
+        ...headers,
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+      },
+      body: '' 
     };
   }
 
-  try {
-    const response = await fetch('https://api.cartola.globo.com/atletas/mercado');
+  return new Promise((resolve) => {
+    const url = 'https://api.cartola.globo.com/atletas/mercado';
     
-    if (!response.ok) {
-      throw new Error(`Erro na API do Cartola: ${response.status}`);
-    }
-
-    const data = await response.json();
-    
-    return {
-      statusCode: 200,
-      headers,
-      body: JSON.stringify(data)
-    };
-    
-  } catch (error) {
-    console.error('Erro ao buscar dados do Cartola:', error);
-    
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ 
-        error: 'Erro interno do servidor',
-        message: error.message 
-      })
-    };
-  }
+    https.get(url, (res) => {
+      let data = '';
+      
+      res.on('data', (chunk) => {
+        data += chunk;
+      });
+      
+      res.on('end', () => {
+        try {
+          const jsonData = JSON.parse(data);
+          
+          // Retorna apenas a parte "atletas" que contém os jogadores
+          const atletas = jsonData.atletas || {};
+          
+          resolve({
+            statusCode: 200,
+            headers,
+            body: JSON.stringify(atletas)
+          });
+        } catch (error) {
+          resolve({
+            statusCode: 500,
+            headers,
+            body: JSON.stringify({ error: 'Erro ao processar dados do Cartola', details: error.message })
+          });
+        }
+      });
+    }).on('error', (error) => {
+      resolve({
+        statusCode: 500,
+        headers,
+        body: JSON.stringify({ error: 'Erro ao conectar com Cartola API', details: error.message })
+      });
+    });
+  });
 };
