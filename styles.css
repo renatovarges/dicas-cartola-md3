@@ -657,9 +657,8 @@ body {
 .player-data {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-start;
     gap: 20px;
-    width: 385px;
 }
 
 /* Coloração do MPV */
