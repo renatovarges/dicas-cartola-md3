@@ -41,7 +41,10 @@ exports.handler = async function(event, context) {
         const response = await fetch('https://web-api.globoid.globo.com/v1/refresh-token', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+                'Origin': 'https://gatomestre.com.br',
+                'Referer': 'https://gatomestre.com.br/'
             },
             body: JSON.stringify({
                 client_id: 'cartola-web@apps.globoid',
