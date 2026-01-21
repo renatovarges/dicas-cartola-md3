@@ -442,8 +442,9 @@ body {
 
 .player-row {
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-start;
     align-items: center;
+    gap: 50px;
     padding: 20px 30px;
     background: rgba(0,0,0,0.6);
     border-radius: 12px;
